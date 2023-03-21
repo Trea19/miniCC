@@ -1,6 +1,7 @@
 %{
 #include "token.h"
 int cur_line_num = 1;
+int cur_col_num = 0;
 void init_scanner();
 void lex_error(char* msg, int line);
 %}
@@ -16,7 +17,7 @@ SINGLE_COMMENT2     ("#"[^\n]*)
 
 %%
 
-[\n]                { cur_line_num++;                       }
+[\n]                { cur_line_num++; cur_col_num = 0;      }
 [ \t\r\a]+          { /* ignore all spaces */               }
 {SINGLE_COMMENT1}   { /* skip for single line comment */    }
 {SINGLE_COMMENT2}   { /* skip for single line commnet */    }
@@ -54,15 +55,24 @@ SINGLE_COMMENT2     ("#"[^\n]*)
 int main(int argc, char* argv[]) {
     int token;
     init_scanner();
+    int token_id = 0;
     while (token = yylex()) {
+        //print_token(token);
+        //puts(yytext);
+        //example: @16,47:46='<EOF>',<EOF>,2:0
+        printf("[@%d, %d:%d = '%s', <", token_id, cur_col_num, cur_col_num + yyleng, yytext);
         print_token(token);
-        puts(yytext);
+        printf(">, %d:%d]\n", cur_line_num, cur_col_num);
+        
+        token_id ++;
+        cur_col_num += yyleng;
     }
     return 0;
 }
 
 void init_scanner() {
-    printf("%-20s%s\n", "TOKEN-TYPE", "TOKEN-VALUE");
+    //printf("%-20s%s\n", "TOKEN-TYPE", "TOKEN-VALUE");
+    printf("Token Streams");
     printf("-------------------------------------------------\n");
 }
 

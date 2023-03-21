@@ -492,10 +492,11 @@ char *yytext;
 #line 2 "scanner.l"
 #include "token.h"
 int cur_line_num = 1;
+int cur_col_num = 0;
 void init_scanner();
 void lex_error(char* msg, int line);
-#line 498 "lex.yy.c"
 #line 499 "lex.yy.c"
+#line 500 "lex.yy.c"
 
 #define INITIAL 0
 
@@ -712,10 +713,10 @@ YY_DECL
 		}
 
 	{
-#line 17 "scanner.l"
+#line 18 "scanner.l"
 
 
-#line 719 "lex.yy.c"
+#line 720 "lex.yy.c"
 
 	while ( /*CONSTCOND*/1 )		/* loops until end-of-file is reached */
 		{
@@ -775,144 +776,144 @@ do_action:	/* This label is used only to access EOF actions. */
 case 1:
 /* rule 1 can match eol */
 YY_RULE_SETUP
-#line 19 "scanner.l"
-{ cur_line_num++;                       }
+#line 20 "scanner.l"
+{ cur_line_num++; cur_col_num = 0;      }
 	YY_BREAK
 case 2:
 YY_RULE_SETUP
-#line 20 "scanner.l"
+#line 21 "scanner.l"
 { /* ignore all spaces */               }
 	YY_BREAK
 case 3:
 YY_RULE_SETUP
-#line 21 "scanner.l"
+#line 22 "scanner.l"
 { /* skip for single line comment */    }
 	YY_BREAK
 case 4:
 YY_RULE_SETUP
-#line 22 "scanner.l"
+#line 23 "scanner.l"
 { /* skip for single line commnet */    }
 	YY_BREAK
 case 5:
 YY_RULE_SETUP
-#line 24 "scanner.l"
+#line 25 "scanner.l"
 { return yytext[0];         }   
 	YY_BREAK
 case 6:
 YY_RULE_SETUP
-#line 26 "scanner.l"
+#line 27 "scanner.l"
 { return T_LessEqual;       }
 	YY_BREAK
 case 7:
 YY_RULE_SETUP
-#line 27 "scanner.l"
+#line 28 "scanner.l"
 { return T_GreaterEqual;    }
 	YY_BREAK
 case 8:
 YY_RULE_SETUP
-#line 28 "scanner.l"
+#line 29 "scanner.l"
 { return T_Equal;           }
 	YY_BREAK
 case 9:
 YY_RULE_SETUP
-#line 29 "scanner.l"
+#line 30 "scanner.l"
 { return T_NotEqual;        }
 	YY_BREAK
 case 10:
 YY_RULE_SETUP
-#line 30 "scanner.l"
+#line 31 "scanner.l"
 { return T_And;             }
 	YY_BREAK
 case 11:
 YY_RULE_SETUP
-#line 31 "scanner.l"
+#line 32 "scanner.l"
 { return T_Or;              }
 	YY_BREAK
 case 12:
 YY_RULE_SETUP
-#line 32 "scanner.l"
+#line 33 "scanner.l"
 { return T_Void;            }
 	YY_BREAK
 case 13:
 YY_RULE_SETUP
-#line 33 "scanner.l"
+#line 34 "scanner.l"
 { return T_Int;             }
 	YY_BREAK
 case 14:
 YY_RULE_SETUP
-#line 34 "scanner.l"
+#line 35 "scanner.l"
 { return T_While;           }
 	YY_BREAK
 case 15:
 YY_RULE_SETUP
-#line 35 "scanner.l"
+#line 36 "scanner.l"
 { return T_If;              }
 	YY_BREAK
 case 16:
 YY_RULE_SETUP
-#line 36 "scanner.l"
+#line 37 "scanner.l"
 { return T_Else;            }
 	YY_BREAK
 case 17:
 YY_RULE_SETUP
-#line 37 "scanner.l"
+#line 38 "scanner.l"
 { return T_Return;          }
 	YY_BREAK
 case 18:
 YY_RULE_SETUP
-#line 38 "scanner.l"
+#line 39 "scanner.l"
 { return T_Break;           }
 	YY_BREAK
 case 19:
 YY_RULE_SETUP
-#line 39 "scanner.l"
+#line 40 "scanner.l"
 { return T_Continue;        }
 	YY_BREAK
 case 20:
 YY_RULE_SETUP
-#line 40 "scanner.l"
+#line 41 "scanner.l"
 { return T_Print;           }
 	YY_BREAK
 case 21:
 YY_RULE_SETUP
-#line 41 "scanner.l"
+#line 42 "scanner.l"
 { return T_ReadInt;         }
 	YY_BREAK
 case 22:
 YY_RULE_SETUP
-#line 43 "scanner.l"
+#line 44 "scanner.l"
 { return T_IntConstant;     }
 	YY_BREAK
 case 23:
 YY_RULE_SETUP
-#line 44 "scanner.l"
+#line 45 "scanner.l"
 { return T_StringConstant;  }
 	YY_BREAK
 case 24:
 YY_RULE_SETUP
-#line 45 "scanner.l"
+#line 46 "scanner.l"
 { return T_Identifier;      }
 	YY_BREAK
 case YY_STATE_EOF(INITIAL):
-#line 47 "scanner.l"
+#line 48 "scanner.l"
 { return 0; }
 	YY_BREAK
 case 25:
 YY_RULE_SETUP
-#line 49 "scanner.l"
+#line 50 "scanner.l"
 { lex_error("Unterminated string constant", cur_line_num);  }
 	YY_BREAK
 case 26:
 YY_RULE_SETUP
-#line 50 "scanner.l"
+#line 51 "scanner.l"
 { lex_error("Unrecognized character", cur_line_num);        }
 	YY_BREAK
 case 27:
 YY_RULE_SETUP
-#line 52 "scanner.l"
+#line 53 "scanner.l"
 ECHO;
 	YY_BREAK
-#line 916 "lex.yy.c"
+#line 917 "lex.yy.c"
 
 	case YY_END_OF_BUFFER:
 		{
@@ -1915,21 +1916,30 @@ void yyfree (void * ptr )
 
 #define YYTABLES_NAME "yytables"
 
-#line 52 "scanner.l"
+#line 53 "scanner.l"
 
 
 int main(int argc, char* argv[]) {
     int token;
     init_scanner();
+    int token_id = 0;
     while (token = yylex()) {
+        //print_token(token);
+        //puts(yytext);
+        //example: @16,47:46='<EOF>',<EOF>,2:0
+        printf("[@%d, %d:%d = '%s', <", token_id, cur_col_num, cur_col_num + yyleng, yytext);
         print_token(token);
-        puts(yytext);
+        printf(">, %d:%d]\n", cur_line_num, cur_col_num);
+        
+        token_id ++;
+        cur_col_num += yyleng;
     }
     return 0;
 }
 
 void init_scanner() {
-    printf("%-20s%s\n", "TOKEN-TYPE", "TOKEN-VALUE");
+    //printf("%-20s%s\n", "TOKEN-TYPE", "TOKEN-VALUE");
+    printf("Token Streams");
     printf("-------------------------------------------------\n");
 }
 

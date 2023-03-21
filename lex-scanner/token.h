@@ -17,9 +17,9 @@ static void print_token(int token) {
     };
 
     if (token < 256) {
-        printf("%-20c", token);
+        printf("%c", token);
     } else {
-        printf("%-20s", token_strs[token-256]);
+        printf("%s", token_strs[token-256]);
     }
 }
 
