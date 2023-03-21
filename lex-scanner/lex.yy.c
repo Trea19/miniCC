@@ -495,8 +495,7 @@ int cur_line_num = 1;
 void init_scanner();
 void lex_error(char* msg, int line);
 #line 498 "lex.yy.c"
-/* Definitions, note: \042 is '"' */
-#line 500 "lex.yy.c"
+#line 499 "lex.yy.c"
 
 #define INITIAL 0
 
@@ -716,7 +715,7 @@ YY_DECL
 #line 17 "scanner.l"
 
 
-#line 720 "lex.yy.c"
+#line 719 "lex.yy.c"
 
 	while ( /*CONSTCOND*/1 )		/* loops until end-of-file is reached */
 		{
@@ -802,22 +801,22 @@ YY_RULE_SETUP
 case 6:
 YY_RULE_SETUP
 #line 26 "scanner.l"
-{ return T_Le;              }
+{ return T_LessEqual;       }
 	YY_BREAK
 case 7:
 YY_RULE_SETUP
 #line 27 "scanner.l"
-{ return T_Ge;              }
+{ return T_GreaterEqual;    }
 	YY_BREAK
 case 8:
 YY_RULE_SETUP
 #line 28 "scanner.l"
-{ return T_Eq;              }
+{ return T_Equal;           }
 	YY_BREAK
 case 9:
 YY_RULE_SETUP
 #line 29 "scanner.l"
-{ return T_Ne;              }
+{ return T_NotEqual;        }
 	YY_BREAK
 case 10:
 YY_RULE_SETUP
@@ -913,7 +912,7 @@ YY_RULE_SETUP
 #line 52 "scanner.l"
 ECHO;
 	YY_BREAK
-#line 917 "lex.yy.c"
+#line 916 "lex.yy.c"
 
 	case YY_END_OF_BUFFER:
 		{

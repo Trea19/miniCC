@@ -5,7 +5,7 @@ void init_scanner();
 void lex_error(char* msg, int line);
 %}
 
-/* Definitions, note: \042 is '"' */
+
 INTEGER             ([0-9]+)
 UNTERM_STRING       (\042[^\042\n]*)
 STRING              (\042[^\042\n]*\042)
@@ -23,10 +23,10 @@ SINGLE_COMMENT2     ("#"[^\n]*)
 
 {OPERATOR}          { return yytext[0];         }   
 
-"<="                { return T_Le;              }
-">="                { return T_Ge;              }
-"=="                { return T_Eq;              }
-"!="                { return T_Ne;              }
+"<="                { return T_LessEqual;       }
+">="                { return T_GreaterEqual;    }
+"=="                { return T_Equal;           }
+"!="                { return T_NotEqual;        }
 "&&"                { return T_And;             }
 "||"                { return T_Or;              }
 "void"              { return T_Void;            }
