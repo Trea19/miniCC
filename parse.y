@@ -4,18 +4,6 @@
 int yylex(void);
 void yyerror(const char*);
 #define YYSTYPE char *
-
-int ii = 0, itop = -1, istack[100];
-int ww = 0, wtop = -1, wstack[100];
-
-#define _BEG_IF     {istack[++itop] = ++ii;}
-#define _END_IF     {itop--;}
-#define _i          (istack[itop])
-
-#define _BEG_WHILE  {wstack[++wtop] = ++ww;}
-#define _END_WHILE  {wtop--;}
-#define _w          (wstack[wtop])
-
 %}
 
 %token T_Int T_Void T_Return T_Print T_ReadInt T_While
@@ -35,14 +23,14 @@ int ww = 0, wtop = -1, wstack[100];
 
 Program:
     /* empty */             { /* empty */ }
-|   Program FuncDecl        { /* empty */ }
+|   Program FunctionDef        { /* empty */ }
 ;
 
-FuncDecl:
-    RetType FuncName '(' Args ')' '{' VarDecls Stmts '}'    {printf("ENDFUNC\n\n"); }
+FunctionDef:
+    ReturnType FuncName '(' Args ')' '{' VarDecls Statements '}'    {printf("ENDFUNC\n\n"); }
 ;
 
-RetType:
+ReturnType:
     T_Int                   { /* empty */ }
 |   T_Void                  { /* empty */ }
 ;
@@ -73,28 +61,28 @@ VarDecl:
                             { printf(", %s", $3); }
 ;
 
-Stmts:
+Statements:
     /* empty */             { /* empty */ }
-|   Stmts Stmt              { /* empty */ }
+|   Statements Statement              { /* empty */ }
 ;
 
-Stmt:
-    AssignStmt              { /* empty */ }
-|   PrintStmt               { /* empty */ }
-|   CallStmt                { /* empty */ }
-|   ReturnStmt              { /* empty */ }
-|   IfStmt                  { /* empty */ }
-|   WhileStmt               { /* empty */ }
-|   BreakStmt               { /* empty */ }
-|   ContinueStmt            { /* empty */ }
+Statement:
+    AssignStatement              { printf("finish assign statement\n"); }
+|   PrintStatement               { printf("finish print statement\n");}
+|   CallStatement                { printf("finish call statement\n");}
+|   ReturnStatement              { printf("finish return statement\n"); }
+|   IfStatement                  { printf("finish if statement\n"); }
+|   WhileStatement               { printf("finish while statement\n"); }
+|   BreakStatement               { printf("finish break statement\n"); }
+|   ContinueStatement            { printf("finish continue statement\n"); }
 ;
 
-AssignStmt:
+AssignStatement:
     T_Identifier '=' Expr ';'
                             { printf("\tpop %s\n\n", $1); }
 ;
 
-PrintStmt:
+PrintStatement:
     T_Print '(' T_StringConstant PActuals ')' ';'
                             { printf("\tprint %s\n\n", $3); }
 ;
@@ -104,7 +92,7 @@ PActuals:
 |   PActuals ',' Expr       { /* empty */ }
 ;
 
-CallStmt:
+CallStatement:
     CallExpr ';'            { printf("\tpop\n\n"); }
 ;
 
@@ -118,70 +106,50 @@ Actuals:
 |   Expr PActuals           { /* empty */ }
 ;
 
-ReturnStmt:
+ReturnStatement:
     T_Return Expr ';'       { printf("\tret ~\n\n"); }
 |   T_Return ';'            { printf("\tret\n\n"); }
 ;
 
-IfStmt:
-    If TestExpr Then StmtsBlock EndThen EndIf
-                            { /* empty */ }
-|   If TestExpr Then StmtsBlock EndThen Else StmtsBlock EndIf
-                            { /* empty */ }
+IfStatement:
+    If TestExpr StatementsBlock
+                            { /*empty*/ }
+|   If TestExpr StatementsBlock Else StatementsBlock
+                            { /*empty*/ }
 ;
 
 TestExpr:
-    '(' Expr ')'            { /* empty */ }
+    '(' Expr ')'            { printf("finish testExpression\n");}
 ;
 
-StmtsBlock:
-    '{' Stmts '}'           { /* empty */ }
+StatementsBlock:
+    '{' Statements '}'           { printf("finish statementsBlock\n"); }
 ;
 
 If:
-    T_If            { _BEG_IF; printf("_begIf_%d:\n", _i); }
+    T_If            { /*empty*/}
 ;
 
-Then:
-    /* empty */     { printf("\tjz _elIf_%d\n", _i); }
-;
-
-EndThen:
-    /* empty */     { printf("\tjmp _endIf_%d\n_elIf_%d:\n", _i, _i); }
-;
 
 Else:
     T_Else          { /* empty */ }
 ;
 
-EndIf:
-    /* empty */     { printf("_endIf_%d:\n\n", _i); _END_IF; }
-;
-
-WhileStmt:
-    While TestExpr Do StmtsBlock EndWhile
-                    { /* empty */ }
+WhileStatement:
+    While TestExpr StatementsBlock
+                    { printf("finish whileStatement\n");}
 ;
 
 While:
-    T_While         { _BEG_WHILE; printf("_begWhile_%d:\n", _w); }
+    T_While         { /*empty*/}
 ;
 
-Do:
-    /* empty */     { printf("\tjz _endWhile_%d\n", _w); }
+BreakStatement:
+    T_Break ';'     { /*empty*/}
 ;
 
-EndWhile:
-    /* empty */     { printf("\tjmp _begWhile_%d\n_endWhile_%d:\n\n", 
-                                _w, _w); _END_WHILE; }
-;
-
-BreakStmt:
-    T_Break ';'     { printf("\tjmp _endWhile_%d\n", _w); }
-;
-
-ContinueStmt:
-    T_Continue ';'  { printf("\tjmp _begWhile_%d\n", _w); }
+ContinueStatement:
+    T_Continue ';'  { /*empty*/}
 ;
 
 Expr:
