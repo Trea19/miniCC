@@ -1,6 +1,10 @@
 %{
 #define YYSTYPE char *
 #include "y.tab.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include "syntax_tree.h"
+
 int cur_line = 1;
 void yyerror(const char *msg);
 void unrecognized_char(char c);
