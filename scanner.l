@@ -1,75 +1,148 @@
 %{
-#define YYSTYPE char *
-#include "y.tab.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include "syntax_tree.h"
-
-int cur_line = 1;
-void yyerror(const char *msg);
-void unrecognized_char(char c);
-void unterminate_string();
-#define _DUPTEXT {yylval = strdup(yytext);}
+	#include <stdlib.h>
+	#include <stdio.h>
+    #include "syntax_tree.h"
+    #include "parse.tab.h"
 %}
 
-WHITESPACE          ([ \t\r\a]+)
-SINGLE_COMMENT1     ("//"[^\n]*)
-SINGLE_COMMENT2     ("#"[^\n]*)
-OPERATOR            ([+*-/%=,;!<>(){}])
-INTEGER             ([0-9]+)
-IDENTIFIER          ([_a-zA-Z][_a-zA-Z0-9]*)
-UNTERM_STRING       (\042[^\042\n]*)
-STRING              (\042[^\042\n]*\042)
+/* 行号 */
+%option yylineno
+
+/*十进制*/
+INT_DEC 0|[1-9][0-9]*
+/*十六进制*/
+INT_HEX 0[xX][a-fA-F0-9]+
+/*八进制*/
+INT_OCT 0[1-7][0-7]*
+/*二进制*/
+INT_BIN 0[bB][01]+
+
+/* 十六进制错误 */
+INT_HEX_ERROR 0[xX][a-fA-F0-9]*[g-zG-Z]+[a-fA-F0-9]*
+/* 八进制错误 */
+INT_OCT_ERROR 0[0-7]*[89]+[0-7]*
+/* 二进制错误 */
+INT_BIN_ERROR 0[bB][01]*[2-9]+[01]*
+
+/* INT类型汇总 注：词法分析输出错误，但是语法分析当做INT进行处理 */
+INT {INT_HEX}|{INT_DEC}|{INT_OCT}|{INT_BIN}|{INT_HEX_ERROR}|{INT_OCT_ERROR}|{INT_BIN_ERROR}
+
+/* 标识符 */
+ID [a-z_A-Z][a-z_A-Z0-9]*
+
+/* 关键字 */
+STRUCT struct
+RETURN return
+IF if
+ELSE else
+WHILE while
+BREAK break
+TYPE int
+
+/* 符号 */
+SEMI  ;
+COMMA ,
+ASSIGNOP  =
+PLUS  \+
+MINUS \-
+MULTI  \*
+DIV   \/
+AND   &&
+OR    \|\|
+DOT   \.
+NOT   \!
+LP    \(
+RP    \)
+LB    \[
+RB    \]
+LC    \{
+RC    \}
+RELOP >|<|>=|<=|==|!=
+
+/* 注释 */
+COMMENT ("//".*)|("/*"([*]*(([^*/])+([/])*)*)*"*/")
+
+/* 空白符 */
+SPACE [ \r\t\a]+
+
+/* 换行 */
+EOL \n
+
+/* 未定义字符 */
+AERROR .
+
 
 %%
 
-\n                  { cur_line++; }
-{WHITESPACE}        { /* ignore every whitespace */ }
-{SINGLE_COMMENT1}   { /* skip for single line comment */    }
-{SINGLE_COMMENT2}   { /* skip for single line comment */    }
+{SPACE} { /*empty*/ }
+{COMMENT} { /*empty*/ }
+{EOL} { /*empty*/ }
 
-{OPERATOR}          { return yytext[0]; }
-"int"               { return T_Int; }
-"void"              { return T_Void; }
-"return"            { return T_Return; }
-"print"             { return T_Print; }
-"readint"           { return T_ReadInt; }
-"while"             { return T_While; }
-"if"                { return T_If; }
-"else"              { return T_Else; }
-"break"             { return T_Break; }
-"continue"          { return T_Continue; }
-"<="                { return T_Le; }
-">="                { return T_Ge; }
-"=="                { return T_Eq; }
-"!="                { return T_Ne; }
-"&&"                { return T_And; }
-"||"                { return T_Or; }
+ /* 关键字 */
+{TYPE} {yylval.type_tnode=newAst("TYPE",0,yylineno); return TYPE;}
+{STRUCT} {
+	yylval.type_tnode=newAst("STRUCT",0,yylineno); 
+	// 结构体数加一
+	strucNum++; 
+	// 开始扫描结构体定义内容
+	inStruc=1; 
+	return STRUCT;}
+{RETURN} {yylval.type_tnode=newAst("RETURN",0,yylineno); return RETURN;}
+{IF} {yylval.type_tnode=newAst("IF",0,yylineno);return IF;}
+{ELSE} {yylval.type_tnode=newAst("ELSE",0,yylineno); return ELSE;}
+{WHILE} {yylval.type_tnode=newAst("WHILE",0,yylineno); return WHILE;} 
+{BREAK} {yylval.type_tnode=newAst("BREAK",0,yylineno); return BREAK;} 
 
-{INTEGER}           { _DUPTEXT return T_IntConstant; }
-{STRING}            { _DUPTEXT return T_StringConstant; }
-{IDENTIFIER}        { _DUPTEXT return T_Identifier; }
+ /* 数字类型错误 */
+{INT_HEX_ERROR} {printf("INT_HEX_ERROR at line %d: charachters \"%s\"\n", yylineno, yytext);}
+{INT_OCT_ERROR} {printf("INT_OCT_ERROR at line %d: charachters \"%s\"\n", yylineno, yytext);}
+{INT_BIN_ERROR} {printf("INT_BIN_ERROR at line %d: charachters \"%s\"\n", yylineno, yytext);}
 
-{UNTERM_STRING}     { unterminate_string(); }
-.                   { unrecognized_char(yytext[0]); }
+ /* 数字类型表示 */
+{INT} {yylval.type_tnode=newAst("INT",0,yylineno); return INT;}
 
+ /* 符号 */
+{SEMI} {yylval.type_tnode=newAst("SEMI",0,yylineno); return SEMI;}
+{COMMA} {yylval.type_tnode=newAst("COMMA",0,yylineno); return COMMA;}
+{ASSIGNOP} {yylval.type_tnode=newAst("ASSIGNOP",0,yylineno); return ASSIGNOP;}
+{PLUS} {yylval.type_tnode=newAst("PLUS",0,yylineno); return PLUS;}
+{MINUS} {yylval.type_tnode=newAst("MINUS",0,yylineno); return MINUS;}
+{MULTI} {yylval.type_tnode=newAst("MULTI",0,yylineno); return MULTI;}
+{DIV} {yylval.type_tnode=newAst("DIV",0,yylineno); return DIV;}
+{AND} {yylval.type_tnode=newAst("AND",0,yylineno); return AND;}
+{OR} {yylval.type_tnode=newAst("OR",0,yylineno); return OR;}
+{DOT} {yylval.type_tnode=newAst("DOT",0,yylineno); return DOT;}
+{NOT} {yylval.type_tnode=newAst("NOT",0,yylineno); return NOT;}
+{LP} {yylval.type_tnode=newAst("LP",0,yylineno); return LP;}
+{RP} {yylval.type_tnode=newAst("RP",0,yylineno); return RP;}
+{LB} {yylval.type_tnode=newAst("LB",0,yylineno); return LB;}
+{RB} {yylval.type_tnode=newAst("RB",0,yylineno); return RB;}
+{LC} {
+	yylval.type_tnode=newAst("LC",0,yylineno); 
+	if(inStruc){ // 结构体定义内部存在LC左花括号
+		LCnum++;
+	}
+	return LC;}
+{RC} {
+	yylval.type_tnode=newAst("RC",0,yylineno); 
+	if(inStruc){ // 结构体定义内部存在RC右花括号
+		LCnum--;
+	}
+	return RC;}
+{RELOP} {yylval.type_tnode=newAst("RELOP",0,yylineno); return RELOP;}
+
+ /* 标识符 */
+{ID} {yylval.type_tnode=newAst("ID",0,yylineno); return ID;}
+
+ /* 错误 */
+{AERROR} {
+	hasFault = 1;
+	printf("Error at line %d: Unrecognized charachter '%s'\n",yylineno,yytext);
+}
 %%
 
-int yywrap(void) { 
+/* 当词法分析程序遇到文件结尾时，它调用例程yywrap()来找出下一步要做什么 */
+/* return 0，扫描程序继续扫描；return 1，扫描程序就返回报告文件结尾 */
+int yywrap() {
     return 1;
-}
-
-void unrecognized_char(char c) {
-    char buf[32] = "Unrecognized character: ?";
-    buf[24] = c;
-    yyerror(buf);
-}
-
-void unterminate_string() {
-    yyerror("Unterminate string constant");
-}
-
-void yyerror(const char *msg) {
-    fprintf(stderr, "Error at line %d:\n\t%s\n", cur_line, msg);
-    exit(-1);
 }
