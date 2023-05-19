@@ -134,19 +134,42 @@ void newvar(int num, ...) {
 }
 
 // 查找变量, 检查是否存在变量重复定义
-int findvar(tnode val) {
+int findvar(tnode val)
+{
     var *temp = (var *)malloc(sizeof(var *));
-    temp = varhead -> next;
-    while (temp != NULL) {
-        if (!strcmp(temp -> name, val -> content)){ //找到同名
-            if (inStruc && LCnum) { // 当前变量在是结构体域内
-                if (temp -> inStruc && temp -> strucNum == strucNum){ // 同一结构体中域名重复
-                    printf("Error at Line %d: Variable redefinition.\n", yylineno);
+    temp = varhead->next;
+    while (temp != NULL)
+    {
+        if (!strcmp(temp->name, val->content))
+        {
+            if (inStruc && LCnum) // 当前变量是结构体域
+            {
+                if (!temp->inStruc)
+                {
+                    // 结构体域与变量重名
+                    printf("Error type 9 at Line %d:Struct Field and Variable use the same name.\n", yylineno);
+                }
+                else if (temp->inStruc && temp->strucNum != strucNum)
+                {
+                    // 不同结构体中的域重名
+                    printf("Error type 10 at Line %d:Struct Fields use the same name.\n", yylineno);
+                }
+                else
+                {
+                    // 同一结构体中域名重复
                     return 1;
                 }
-            } else { // 当前变量是全局变量
-                if (!temp->inStruc) { // 变量与变量重名，即重复定义
-                    printf("Error at Line %d: Variable redefinition.\n", yylineno);
+            }
+            else // 当前变量是全局变量
+            {
+                if (temp->inStruc)
+                {
+                    // 变量与结构体域重名
+                    printf("Error type 9 at Line %d:Struct Field and Variable use the same name.\n", yylineno);
+                }
+                else
+                {
+                    // 变量与变量重名，即重复定义
                     return 1;
                 }
             }
@@ -511,4 +534,3 @@ int main(int argc, char **argv) {
     }
     return 0;
 }
-

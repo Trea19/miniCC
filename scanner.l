@@ -30,6 +30,10 @@ INT {INT_HEX}|{INT_DEC}|{INT_OCT}|{INT_BIN}|{INT_HEX_ERROR}|{INT_OCT_ERROR}|{INT
 /* 标识符 */
 ID [a-z_A-Z][a-z_A-Z0-9]*
 
+/* 字符串常量 \042为双引号 */
+STRING              (\042[^\042\n]*\042)
+UNTERM_STRING       (\042[^\042\n]*)
+
 /* 关键字 */
 STRUCT struct
 RETURN return
@@ -38,6 +42,8 @@ ELSE else
 WHILE while
 BREAK break
 TYPE int
+PRINT print
+GETINT getInt
 
 /* 符号 */
 SEMI  ;
@@ -92,6 +98,9 @@ AERROR .
 {ELSE} {yylval.type_tnode=newAst("ELSE",0,yylineno); return ELSE;}
 {WHILE} {yylval.type_tnode=newAst("WHILE",0,yylineno); return WHILE;} 
 {BREAK} {yylval.type_tnode=newAst("BREAK",0,yylineno); return BREAK;} 
+{PRINT} {yylval.type_tnode=newAst("PRINT",0,yylineno); return PRINT;}
+{GETINT} {yylval.type_tnode=newAst("GETINT",0,yylineno); return GETINT;}
+{STRING} {yylval.type_tnode=newAst("STRING",0,yylineno); return STRING;}
 
  /* 数字类型错误 */
 {INT_HEX_ERROR} {printf("INT_HEX_ERROR at line %d: charachters \"%s\"\n", yylineno, yytext);}
@@ -134,6 +143,12 @@ AERROR .
  /* 标识符 */
 {ID} {yylval.type_tnode=newAst("ID",0,yylineno); return ID;}
 
+ /* 不完整字符串错误 */
+{UNTERM_STRING} {
+	hasFault = 1;
+	printf("Error at line %d: Unterminate string constant\n",yylineno);
+}
+
  /* 错误 */
 {AERROR} {
 	hasFault = 1;
@@ -146,3 +161,4 @@ AERROR .
 int yywrap() {
     return 1;
 }
+

@@ -2,6 +2,8 @@
 #include<unistd.h>
 #include<stdio.h>   
 #include "syntax_tree.h"
+
+int inWhile = 0; /* 如果 inWhile > 0 则在循环体中*/
 %}
 
 %union{
@@ -10,11 +12,11 @@
 }
 
 /*声明记号*/
-%token <type_tnode> INT TYPE STRUCT RETURN IF ELSE WHILE BREAK ID COMMENT SPACE SEMI COMMA ASSIGNOP 
-%token <type_tnode> PLUS MINUS MULTI DIV AND OR DOT NOT LP RP LB RB LC RC AERROR RELOP EOL
+%token <type_tnode> INT STRING TYPE STRUCT RETURN PRINT IF ELSE WHILE BREAK ID COMMENT SPACE SEMI COMMA ASSIGNOP 
+%token <type_tnode> PLUS MINUS MULTI DIV AND OR DOT NOT LP RP LB RB LC RC AERROR RELOP EOL GETINT
 
-%type  <type_tnode> Program ExtDefList ExtDef ExtDecList Specifire StructSpecifire 
-%type  <type_tnode> OptTag Tag VarDec FunDec VarList ParamDec Compst StmtList Stmt DefList Def DecList Dec Exp Args
+%type  <type_tnode> Program ExtDefList ExtDef ExtDecList Specifire StructSpecifire PrintStmt ReadStmt PActuals
+%type  <type_tnode> OptTag Tag VarDec FunDec VarList ParamDec Compst StmtList Stmt DefList Def DecList Dec Exp Args _while
 
 /*优先级*/
 %right ASSIGNOP
@@ -130,7 +132,8 @@ Compst:
 LC DefList StmtList RC {$$=newAst("Compst",4,$1,$2,$3,$4); }
 ;
 
-StmtList:Stmt StmtList{$$=newAst("StmtList",2,$1,$2); }
+StmtList:
+Stmt StmtList{$$=newAst("StmtList",2,$1,$2); }
 | {$$=newAst("StmtList",0,-1); }
 ;
 
@@ -142,7 +145,23 @@ Exp SEMI {$$=newAst("Stmt",2,$1,$2); }
 		getrtype($2);}
 |IF LP Exp RP Stmt %prec LOWER_THAN_ELSE {$$=newAst("Stmt",5,$1,$2,$3,$4,$5); }
 |IF LP Exp RP Stmt ELSE Stmt {$$=newAst("Stmt",7,$1,$2,$3,$4,$5,$6,$7); }
-|WHILE LP Exp RP Stmt {$$=newAst("Stmt",5,$1,$2,$3,$4,$5); }
+|_while LP Exp RP Stmt { inWhile = inWhile - 1;
+						$$=newAst("Stmt",5,$1,$2,$3,$4,$5); }
+|PrintStmt {$$=newAst("Stmt",1,$1); }
+;
+
+PrintStmt:
+PRINT LP STRING PActuals RP SEMI {$$=newAst("PrintStmt",6,$1,$2,$3,$4,$5,$6); }
+;
+
+PActuals:
+PActuals COMMA Exp {$$=newAst("PActuals",3,$1,$2,$3);}
+| {$$=newAst("PActuals",0,-1); }
+;
+
+_while:
+WHILE {inWhile = inWhile + 1; 
+	$$=newAst("_while",1,$1);}
 ;
 
 /*Local Definitions*/
@@ -236,7 +255,15 @@ Exp ASSIGNOP Exp {
 		else 
 			$$->type=typevar($1);}
 |INT {$$=newAst("Exp",1,$1); $$->tag=3;$$->type="int";}
-|BREAK {$$=newAst("Exp",1,$1);}
+|BREAK {
+	$$=newAst("Exp",1,$1);
+	if (inWhile <= 0)
+		printf("Error at Line %d: break not in loop.\n",yylineno);}
+|ReadStmt {$$=newAst("Stmt",1,$1); }
+;
+
+ReadStmt:
+GETINT LP STRING RP SEMI {$$=newAst("ReadStmt",5,$1,$2,$3,$4,$5);}
 ;
 
 Args:
@@ -245,4 +272,5 @@ Exp COMMA Args {$$=newAst("Args",3,$1,$2,$3);}
 ;
 
 %%
+
 

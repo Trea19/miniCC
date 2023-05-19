@@ -1,13 +1,16 @@
 int main() {
-	int n;
-	n = 1;
+	int n = 1;
+	//n = 1;
 
-	print("The first 10 number of the fibonacci sequence:");
+	//print("The first 10 number of the fibonacci sequence:");
 	while (n <= 10) {
-		print("fib(%d)=%d", n, fib(n));
+		if (n = 5) {
+		    break;
+		}
 		n = n + 1;
 	}
 
+	fib(n)
 	return 0;
 }
 
