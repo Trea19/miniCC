@@ -1,8 +1,8 @@
 %{
-	#include <stdlib.h>
-	#include <stdio.h>
-    #include "syntax_tree.h"
-    #include "parse.tab.h"
+#include <stdlib.h>
+#include <stdio.h>
+#include "syntax_tree.h"
+#include "parse.tab.h"
 %}
 
 /* 行号 */
@@ -69,7 +69,7 @@ RELOP >|<|>=|<=|==|!=
 COMMENT ("//".*)|("/*"([*]*(([^*/])+([/])*)*)*"*/")
 
 /* 空白符 */
-SPACE [ \r\t\a]+
+SPACE [ \f\r\t\v]+
 
 /* 换行 */
 EOL \n
@@ -88,7 +88,7 @@ AERROR .
 {TYPE} {yylval.type_tnode=newAst("TYPE",0,yylineno); return TYPE;}
 {STRUCT} {
 	yylval.type_tnode=newAst("STRUCT",0,yylineno); 
-	// 结构体数加一
+	// 结构体编号++
 	strucNum++; 
 	// 开始扫描结构体定义内容
 	inStruc=1; 
@@ -103,9 +103,9 @@ AERROR .
 {STRING} {yylval.type_tnode=newAst("STRING",0,yylineno); return STRING;}
 
  /* 数字类型错误 */
-{INT_HEX_ERROR} {printf("INT_HEX_ERROR at line %d: charachters \"%s\"\n", yylineno, yytext);}
-{INT_OCT_ERROR} {printf("INT_OCT_ERROR at line %d: charachters \"%s\"\n", yylineno, yytext);}
-{INT_BIN_ERROR} {printf("INT_BIN_ERROR at line %d: charachters \"%s\"\n", yylineno, yytext);}
+{INT_HEX_ERROR} {printf("Error TYPE-14 INT_HEX_ERROR at line %d: charachters \"%s\"\n", yylineno, yytext);}
+{INT_OCT_ERROR} {printf("Error TYPE-14 INT_OCT_ERROR at line %d: charachters \"%s\"\n", yylineno, yytext);}
+{INT_BIN_ERROR} {printf("Error TYPE-14 INT_BIN_ERROR at line %d: charachters \"%s\"\n", yylineno, yytext);}
 
  /* 数字类型表示 */
 {INT} {yylval.type_tnode=newAst("INT",0,yylineno); return INT;}
@@ -146,13 +146,13 @@ AERROR .
  /* 不完整字符串错误 */
 {UNTERM_STRING} {
 	hasFault = 1;
-	printf("Error at line %d: Unterminate string constant\n",yylineno);
+	printf("Error TYPE-12 at line %d: Unterminate String Constant\n",yylineno);
 }
 
  /* 错误 */
 {AERROR} {
 	hasFault = 1;
-	printf("Error at line %d: Unrecognized charachter '%s'\n",yylineno,yytext);
+	printf("Error TYPE-13 at line %d: Unrecognized character '%s'\n",yylineno,yytext);
 }
 %%
 

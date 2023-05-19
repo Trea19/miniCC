@@ -1,8 +1,7 @@
 int main() {
 	int n = 1;
-	//n = 1;
 
-	//print("The first 10 number of the fibonacci sequence:");
+	print("The first 10 number of the fibonacci sequence:");
 	while (n <= 10) {
 		if (n = 5) {
 		    break;

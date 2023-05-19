@@ -47,15 +47,15 @@ ExtDef ExtDefList {$$=newAst("ExtDefList",2,$1,$2); }
 ExtDef:
 Specifire ExtDecList SEMI {
 	$$=newAst("ExtDef",3,$1,$2,$3);
-	if(findvar($2)) // 变量重定义
-		printf("Error at Line %d: Redefined Variable '%s'\n",yylineno,$2->content);
-    else newvar(2,$1,$2); //新增变量表符号 
+	if(findVar($2)) // 变量重定义
+		printf("Error TYPE-1 at Line %d: Redefined Variable: '%s'\n",yylineno,$2->content);
+    else newVar(2,$1,$2); //新增变量表符号 
     }    
 | Specifire SEMI	{$$=newAst("ExtDef",2,$1,$2); }
 | Specifire FunDec Compst {
 		$$=newAst("ExtDef",3,$1,$2,$3); 
 		// 设置函数声明的返回值类型并检查返回类型错误
-		newfunc(1,$1);
+		newFunc(1,$1);
 }
 ;
 
@@ -75,7 +75,7 @@ STRUCT OptTag LC DefList RC {
 		inStruc = 0;
 		$$=newAst("StructSpecifire",5,$1,$2,$3,$4,$5); 
 		if(findstruc($2))	// 结构体的名字与前面定义过的结构体或变量的名字重复
-			printf("Error at Line %d: Redefined Struct Name '%s'\n",yylineno,$2->content);
+			printf("Error TYPE-8 at Line %d: Redefined Struct Name: '%s'\n",yylineno,$2->content);
         else newstruc(1,$2); }
 |STRUCT Tag {$$=newAst("StructSpecifire",2,$1,$2); }
 ;
@@ -100,15 +100,15 @@ ID {$$=newAst("VarDec",1,$1); $$->tag=1; //变量
 FunDec:
 ID LP VarList RP {
 		$$=newAst("FunDec",4,$1,$2,$3,$4); $$->content = $1->content;
-		if(findfunc($1)) //函数重定义
-			printf("Error at Line %d:Redefined Function '%s'\n",yylineno,$1->content);
-        else newfunc(2,$1,$3); // 设置函数名称以及参数列表 
+		if(findFunc($1)) //函数重定义
+			printf("Error TYPE-6 at Line %d: Redefined Function: '%s'\n",yylineno,$1->content);
+        else newFunc(2,$1,$3); // 设置函数名称以及参数列表 
         }
 |ID LP RP {
 		$$=newAst("FunDec",3,$1,$2,$3); $$->content=$1->content;
-		if(findfunc($1)) //函数重定义
-			printf("Error at Line %d:Redefined Function '%s'\n",yylineno,$1->content);
-        else newfunc(2,$1,$3); 	// 设置函数名称以及参数列表 
+		if(findFunc($1)) //函数重定义
+			printf("Error TYPE-6 at Line %d: Redefined Function: '%s'\n",yylineno,$1->content);
+        else newFunc(2,$1,$3); 	// 设置函数名称以及参数列表 
         }
 ;
 
@@ -120,12 +120,12 @@ ParamDec COMMA VarList {$$=newAst("VarList",3,$1,$2,$3); }
 ParamDec:
 Specifire VarDec {
 		$$=newAst("ParamDec",2,$1,$2); 
-		if(findvar($2)||findarray($2))  // 变量重定义
-			printf("Error at Line %d:Redefined Variable '%s'\n",yylineno,$2->content);
+		if(findVar($2)||findArray($2))  // 变量重定义
+			printf("Error TYPE-1 at Line %d: Redefined Variable: '%s'\n",yylineno,$2->content);
         else if($2->tag==4) //创建数组符号表
-			newarray(2,$1,$2);
+			newArray(2,$1,$2);
         else // 创建变量符号表
-			newvar(2,$1,$2); }
+			newVar(2,$1,$2); }
 ;
 
 Compst:
@@ -142,7 +142,7 @@ Exp SEMI {$$=newAst("Stmt",2,$1,$2); }
 |Compst {$$=newAst("Stmt",1,$1); }
 |RETURN Exp SEMI {
 		$$=newAst("Stmt",3,$1,$2,$3); 
-		getrtype($2);}
+		getRType($2);}
 |IF LP Exp RP Stmt %prec LOWER_THAN_ELSE {$$=newAst("Stmt",5,$1,$2,$3,$4,$5); }
 |IF LP Exp RP Stmt ELSE Stmt {$$=newAst("Stmt",7,$1,$2,$3,$4,$5,$6,$7); }
 |_while LP Exp RP Stmt { inWhile = inWhile - 1;
@@ -173,13 +173,13 @@ Def DefList{$$=newAst("DefList",2,$1,$2); }
 Def:
 Specifire DecList SEMI {
 		$$=newAst("Def",3,$1,$2,$3); 
-		// 错误类型7:变量出现重复定义
-		if(findvar($2)||findarray($2))  
-			printf("Error type 7 at Line %d:Redefined Variable '%s'\n",yylineno,$2->content);
+		// 变量出现重复定义
+		if(findVar($2)||findArray($2))  
+			printf("Error TYPE-1 at Line %d: Redefined Variable: '%s'\n",yylineno,$2->content);
         else if($2->tag==4) 
-			newarray(2,$1,$2);
+			newArray(2,$1,$2);
         else 
-			newvar(2,$1,$2);}
+			newVar(2,$1,$2);}
 ;
 
 DecList:
@@ -200,65 +200,65 @@ Exp ASSIGNOP Exp {
 			return;
 		}
 		if(strcmp($1->type,$3->type)) // 赋值号两边的表达式类型不匹配
-			printf("Error at Line %d:Type mismatched for assignment.\n ",yylineno);
-		if(!checkleft($1)) // 赋值号左边出现一个只有右值的表达式
-			printf("Error at Line %d:The left-hand side of an assignment must be a variable.\n ",yylineno); }
+			printf("Error TYPE-4 at Line %d: Type mismatched for assignment.\n ",yylineno);
+		if(!checkLeft($1)) // 赋值号左边出现一个只有右值的表达式
+			printf("Error TYPE-3 at Line %d: Left-end of the assignment must be a variable.\n ",yylineno); }
 |Exp AND Exp {$$=newAst("Exp",3,$1,$2,$3); }
 |Exp OR Exp {$$=newAst("Exp",3,$1,$2,$3); }
 |Exp RELOP Exp {$$=newAst("Exp",3,$1,$2,$3); }
 |Exp PLUS Exp {
 		$$=newAst("Exp",3,$1,$2,$3); 
-		// 操作数类型不匹配或操作数类型与操作符不匹配
+		// 操作数类型不匹配
 		if(strcmp($1->type,$3->type))
-			printf("Error at Line %d:Type mismatched for operands.\n ",yylineno);}
+			printf("Error TYPE-5 at Line %d: Type mismatched for operands.\n ",yylineno);}
 |Exp MINUS Exp {
 		$$=newAst("Exp",3,$1,$2,$3); 
-		// 操作数类型不匹配或操作数类型与操作符不匹配
+		// 操作数类型不匹配
 		if(strcmp($1->type,$3->type))
-			printf("Error at Line %d:Type mismatched for operands.\n ",yylineno);}
+			printf("Error TYPE-5 at Line %d: Type mismatched for operands.\n ",yylineno);}
 |Exp MULTI Exp {
 		$$=newAst("Exp",3,$1,$2,$3); 
-		// 操作数类型不匹配或操作数类型与操作符不匹配
+		// 操作数类型不匹配
 		if(strcmp($1->type,$3->type))
-			printf("Error at Line %d:Type mismatched for operands.\n ",yylineno);}
+			printf("Error TYPE-5 at Line %d: Type mismatched for operands.\n ",yylineno);}
 |Exp DIV Exp {
 		$$=newAst("Exp",3,$1,$2,$3); 
-		// 操作数类型不匹配或操作数类型与操作符不匹配
+		// 操作数类型不匹配
 		if(strcmp($1->type,$3->type))
-			printf("Error at Line %d:Type mismatched for operands.\n ",yylineno);}
+			printf("Error TYPE-5 at Line %d: Type mismatched for operands.\n ",yylineno);}
 |LP Exp RP {$$=newAst("Exp",3,$1,$2,$3); }
 |MINUS Exp {$$=newAst("Exp",2,$1,$2); }
 |NOT Exp {$$=newAst("Exp",2,$1,$2); }
 |ID LP Args RP {
 		$$=newAst("Exp",4,$1,$2,$3,$4); 
-		if(!findfunc($1) && (findvar($1)||findarray($1))) // 对普通变量使用“(...)”或“()”（函数调用）操作符
-			printf("Error at Line %d:'%s' is not a function.\n ",yylineno,$1->content);
-		else if(!findfunc($1)) // 函数在调用时未经定义
-			printf("Error at Line %d:Undefined function %s\n ",yylineno,$1->content);
+		if(!findFunc($1) && (findVar($1)||findArray($1))) // 对普通变量使用“(...)”或“()”（函数调用）操作符
+			printf("Error TYPE-9 at Line %d: '%s' is not a function.\n ",yylineno,$1->content);
+		else if(!findFunc($1)) // 函数在调用时未经定义
+			printf("Error TYPE-7 at Line %d: Undefined Function: %s\n ",yylineno,$1->content);
 		else if(checkrtype($1,$3))// 函数实参和形参类型不一致
-			printf("Error at Line %d:Function parameter type error.\n ",yylineno);
+			printf("Error TYPE-10 at Line %d: Function parameter type error.\n ",yylineno);
 		else{ /*empty*/ }}
 |ID LP RP {
 		$$=newAst("Exp",3,$1,$2,$3); 
-		if(!findfunc($1) && (findvar($1)||findarray($1))) // 对普通变量使用“(...)”或“()”（函数调用）操作符
-			printf("Error at Line %d:'%s' is not a function.\n ",yylineno,$1->content);
-		else if(!findfunc($1)) 	// 函数在调用时未经定义
-			printf("Error at Line %d:Undefined function %s\n ",yylineno,$1->content);
+		if(!findFunc($1) && (findVar($1)||findArray($1))) // 对普通变量使用“(...)”或“()”（函数调用）操作符
+			printf("Error TYPE-9 at Line %d: '%s' is not a function.\n ",yylineno,$1->content);
+		else if(!findFunc($1)) 	// 函数在调用时未经定义
+			printf("Error TYPE-7 at Line %d: Undefined Function: %s\n ",yylineno,$1->content);
 		else {}
 	}
 |Exp LB Exp RB {$$=newAst("Exp",4,$1,$2,$3,$4); }
 |Exp DOT ID {$$=newAst("Exp",3,$1,$2,$3); }
 |ID {
 		$$=newAst("Exp",1,$1); 
-		if(!findvar($1)&&!findarray($1)) // 变量在使用时未经定义
-			printf("Error at Line %d:undefined variable or array.%s\n",yylineno,$1->content);
+		if(!findVar($1)&&!findArray($1)) // 变量在使用时未经定义
+			printf("Error TYPE-2 at Line %d: Undefined Variable or Array: %s\n",yylineno,$1->content);
 		else 
 			$$->type=typevar($1);}
 |INT {$$=newAst("Exp",1,$1); $$->tag=3;$$->type="int";}
 |BREAK {
 	$$=newAst("Exp",1,$1);
 	if (inWhile <= 0)
-		printf("Error at Line %d: break not in loop.\n",yylineno);}
+		printf("Error TYPE-11 at Line %d: Break Not In Loop.\n",yylineno);}
 |ReadStmt {$$=newAst("Stmt",1,$1); }
 ;
 

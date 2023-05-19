@@ -1,14 +1,13 @@
 #include "syntax_tree.h"
 
 // name: 当前创建结点名称
-// num: > 0 表示该节点不是终结符，存在num个子节点；= 0 为终结符结点；= -1 为空结点
+// num: > 0 表示该节点不是终结符，存在num个子节点；= 0 为终结符结点
 Ast newAst(char *name, int num, ...){
     // 生成父节点
     tnode father = (tnode)malloc(sizeof(struct treeNode));
     // 添加子节点
     tnode temp = (tnode)malloc(sizeof(struct treeNode));
-    if (!father)
-    {
+    if (!father){
         yyerror("create treenode error");
         exit(0);
     }
@@ -39,7 +38,7 @@ Ast newAst(char *name, int num, ...){
                 setChildTag(temp);
             }
         }
-    } else { //表示当前节点是终结符（叶节点）或者空的语法单元（空单元为-1）
+    } else { //表示当前节点是终结符（叶节点）或者空的语法单元
         father->ncld = 0;
         father->line = va_arg(list, int);
 
@@ -75,7 +74,6 @@ void preOrderAst(Ast ast, int level){
             else // 非叶节点打印行号
                 printf("(%d)", ast->line);
             
-
             printf("\n");
             for (int i = 0; i < ast -> ncld; i ++)
                 preOrderAst((ast->cld)[i], level + 1);
@@ -85,7 +83,7 @@ void preOrderAst(Ast ast, int level){
 
 void yyerror(char *msg) {
     hasFault = 1;
-    fprintf(stderr, "Error type B at Line %d: %s before %s\n", yylineno, msg, yytext);
+    fprintf(stderr, "Error at Line %d: %s before %s\n", yylineno, msg, yytext);
 }
 
 // 标记结点为子节点
@@ -96,27 +94,16 @@ void setChildTag(tnode node) {
     }
 }
 
-// // 先序遍历分析
-// void analysis(Ast ast){
-//     if (ast == NULL) return ;
-//     else {
-//         for (int i = 0; i < ast->ncld; ++i)
-//         {
-//             analysis((ast->cld)[i]);
-//         }
-//     }
-// }
-
-// 建立变量符号
-void newvar(int num, ...) {
+// 建立变量符号 e.g. newVar(2,$1,$2)
+void newVar(int num, ...) {
     va_list valist;
     va_start(valist, num);
 
     var *res = (var *)malloc(sizeof(var));
     tnode temp = (tnode)malloc(sizeof(tnode));
 
-    if (inStruc && LCnum){ // 是结构体域中且{和}不能抵消
-        res->inStruc = 1; // 当前是结构体域
+    if (inStruc && LCnum){ // 是结构体域中
+        res->inStruc = 1; // 标记当前是结构体域
         res->strucNum = strucNum; //标记是第几个结构体
     } else {
         res->inStruc = 0; // 不是结构体域
@@ -134,43 +121,18 @@ void newvar(int num, ...) {
 }
 
 // 查找变量, 检查是否存在变量重复定义
-int findvar(tnode val)
-{
+int findVar(tnode val) {
     var *temp = (var *)malloc(sizeof(var *));
     temp = varhead->next;
-    while (temp != NULL)
-    {
-        if (!strcmp(temp->name, val->content))
-        {
-            if (inStruc && LCnum) // 当前变量是结构体域
-            {
-                if (!temp->inStruc)
-                {
-                    // 结构体域与变量重名
-                    printf("Error type 9 at Line %d:Struct Field and Variable use the same name.\n", yylineno);
+    while (temp != NULL){
+        if (!strcmp(temp->name, val->content)){ //找到相等的
+            if (inStruc && LCnum){ // 当前变量是结构体域
+                if (temp -> inStruc && temp -> strucNum == strucNum) {
+                    return 1; //在同一个结构体域中重名
                 }
-                else if (temp->inStruc && temp->strucNum != strucNum)
-                {
-                    // 不同结构体中的域重名
-                    printf("Error type 10 at Line %d:Struct Fields use the same name.\n", yylineno);
-                }
-                else
-                {
-                    // 同一结构体中域名重复
-                    return 1;
-                }
-            }
-            else // 当前变量是全局变量
-            {
-                if (temp->inStruc)
-                {
-                    // 变量与结构体域重名
-                    printf("Error type 9 at Line %d:Struct Field and Variable use the same name.\n", yylineno);
-                }
-                else
-                {
-                    // 变量与变量重名，即重复定义
-                    return 1;
+            } else { // 当前结构体外的变量
+                if (!temp -> inStruc) {
+                    return 1; //结构体外的变量重定义
                 }
             }
         }
@@ -194,7 +156,7 @@ char* typevar(tnode val){
 
 // 赋值号左边只能出现标识符、数组、结构体的变量, 1正0误
 // <ID>、<Exp LB Exp RB>、<Exp DOT ID>
-int checkleft(tnode val){
+int checkLeft(tnode val){
     if (val->ncld == 1 && !strcmp((val->cld)[0]->name, "ID"))
         return 1;
     else if (val->ncld == 4 && !strcmp((val->cld)[0]->name, "Exp") && !strcmp((val->cld)[1]->name, "LB") && !strcmp((val->cld)[2]->name, "Exp") && !strcmp((val->cld)[3]->name, "RB"))
@@ -206,14 +168,14 @@ int checkleft(tnode val){
 }
 
 // 创建函数符号
-void newfunc(int num, ...) {
+void newFunc(int num, ...) {
     va_list valist;
     va_start(valist, num);
 
     tnode temp = (tnode)malloc(sizeof(tnode));
 
     switch (num){
-    case 1:
+    case 1: // 函数返回值
         if (inStruc && LCnum){ // 是结构体的域
             functail->inStruc = 1;
             functail->strucNum = strucNum;
@@ -221,12 +183,11 @@ void newfunc(int num, ...) {
             functail->inStruc = 0;
             functail->strucNum = 0;
         }
-        //设置函数返回值类型
         temp = va_arg(valist, tnode);
         functail-> rtype = temp->content;
         functail-> type = temp->type;
         for (int i = 0; i < rnum; i++){
-            if (rtype[i] == NULL || strcmp(rtype[i], functail->rtype))
+            if (rtype[i] == NULL || strcmp(rtype[i], functail -> rtype))
                 printf("Error at Line %d:Func return type error.\n", yylineno);
         }
         functail ->tag = 1; //标志为已定义
@@ -234,7 +195,7 @@ void newfunc(int num, ...) {
         functail->next = new; //尾指针指向下一个空结点
         functail = new;
         break;
-    case 2:
+    case 2: // 函数名和声明时的参数
         //记录函数名
         temp = va_arg(valist, tnode);
         functail -> name = temp -> content;
@@ -249,18 +210,14 @@ void newfunc(int num, ...) {
 }
 
 //定义的参数
-void getdetype(tnode val)
-{
-    int i;
-    if (val != NULL)
-    {
-        if (!strcmp(val->name, "ParamDec"))
-        {
+void getdetype(tnode val) {
+    if (val != NULL){
+        if (!strcmp(val->name, "ParamDec")) {
             functail->va_type[functail->va_num] = val->cld[0]->content;
             functail->va_num++;
             return;
         }
-        for (i = 0; i < val->ncld; ++i)
+        for (int i = 0; i < val->ncld; ++i)
         {
             getdetype((val->cld)[i]);
         }
@@ -290,11 +247,9 @@ void getretype(tnode val)
         return;
 }
 
-//函数实际返回值类型
-void getrtype(tnode val)
-{
-    rtype[rnum] = val->type;
-    rnum++;
+//获取函数实际返回值类型
+void getRType(tnode val){
+    rtype[rnum ++] = val->type;
 }
 
 //检查形参与实参是否一致,没有错误返回0
@@ -322,43 +277,18 @@ int checkrtype(tnode ID, tnode Args)
 }
 
 // 函数是否已经定义
-int findfunc(tnode val)
-{
+int findFunc(tnode val){
     func *temp = (func *)malloc(sizeof(func *));
     temp = funchead->next;
-    while (temp != NULL && temp->name != NULL && temp->tag == 1)
-    {
-        if (!strcmp(temp->name, val->content))
-        {
-            if (inStruc && LCnum) // 当前变量是结构体域
-            {
-                if (!temp->inStruc)
-                {
-                    // 结构体域与变量重名
-                    printf("Error type 9 at Line %d:Struct Field and Variable use the same name.\n", yylineno);
+    while (temp != NULL && temp->name != NULL && temp->tag == 1){
+        if (!strcmp(temp->name, val->content)){
+            if (inStruc && LCnum){ // 当前变量是结构体域
+                if (temp -> inStruc && temp -> strucNum == strucNum){
+                    return 1; //结构体中函数明重定义
                 }
-                else if (temp->inStruc && temp->strucNum != strucNum)
-                {
-                    // 不同结构体中的域重名
-                    printf("Error type 10 at Line %d:Struct Fields use the same name.\n", yylineno);
-                }
-                else
-                {
-                    // 同一结构体中域名重复
-                    return 1;
-                }
-            }
-            else // 当前变量是全局变量
-            {
-                if (temp->inStruc)
-                {
-                    // 变量与结构体域重名
-                    printf("Error type 9 at Line %d:Struct Field and Variable use the same name.\n", yylineno);
-                }
-                else
-                {
-                    // 变量与变量重名，即重复定义
-                    return 1;
+            } else { // 当前变量在结构体外
+                if (!temp -> inStruc) {
+                    return 1; //结构体外函数重定义
                 }
             }
         }
@@ -368,12 +298,10 @@ int findfunc(tnode val)
 }
 
 // 函数类型
-char *typefunc(tnode val)
-{
+char* getFuncType(tnode val){
     func *temp = (func *)malloc(sizeof(func *));
     temp = funchead->next;
-    while (temp != NULL)
-    {
+    while (temp != NULL){
         if (!strcmp(temp->name, val->content))
             return temp->type; //返回函数类型
         temp = temp->next;
@@ -381,10 +309,9 @@ char *typefunc(tnode val)
     return NULL;
 }
 
-// 形参个数
-int numfunc(tnode val)
-{
-    func *temp = (func *)malloc(sizeof(func *));
+// 返回形参个数
+int getParameterNum(tnode val) {
+    func *temp = (func *)malloc(sizeof(func*));
     temp = funchead->next;
     while (temp != NULL) {
         if (!strcmp(temp->name, val->content))
@@ -394,22 +321,18 @@ int numfunc(tnode val)
 }
 
 // 创建数组符号表
-void newarray(int num, ...)
-{
+void newArray(int num, ...){
     va_list valist;
     va_start(valist, num);
 
     array *res = (array *)malloc(sizeof(array));
     tnode temp = (tnode)malloc(sizeof(struct treeNode));
 
-    if (inStruc && LCnum)
-    {
+    if (inStruc && LCnum){
         // 是结构体的域
         res->inStruc = 1;
         res->strucNum = strucNum;
-    }
-    else
-    {
+    } else {
         res->inStruc = 0;
         res->strucNum = 0;
     }
@@ -423,11 +346,10 @@ void newarray(int num, ...)
 }
 
 // 数组是否已经定义
-int findarray(tnode val){
+int findArray(tnode val){
     array *temp = (array *)malloc(sizeof(array *));
     temp = arrayhead->next;
-    while (temp != NULL)
-    {
+    while (temp != NULL){
         if (!strcmp(temp->name, val->content))
             return 1;
         temp = temp->next;
@@ -475,7 +397,7 @@ int findstruc(tnode val)
             return 1;
         temp = temp->next;
     }
-    if (findvar(val) == 1)
+    if (findVar(val) == 1)
         return 1;
     return 0;
 }
@@ -508,8 +430,8 @@ int main(int argc, char **argv) {
 
         // 初始化节点记录列表
         nodeNum = 0;
-        memset(nodeList, 0, sizeof(tnode) * 5000);
-        memset(nodeIsChild, 0, sizeof(int) * 5000);
+        memset(nodeList, 0, sizeof(tnode) * 500);
+        memset(nodeIsChild, 0, sizeof(int) * 500);
         hasFault = 0;
 
         FILE *f = fopen(argv[i], "r");
