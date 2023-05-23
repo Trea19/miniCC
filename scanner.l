@@ -1,57 +1,53 @@
+/*第一部分 头文件和变量*/
 %{
-#include <stdlib.h>
-#include <stdio.h>
-#include "syntax_tree.h"
-#include "parse.tab.h"
+	#include <stdlib.h>
+	#include <stdio.h>
+    #include "compiler.h"
+    #include "parse.tab.h"
 %}
 
-/* 行号 */
+/*flex属性,记录符号所在行号*/
 %option yylineno
 
+/*第二部分 定义正则表达式*/
 /*十进制*/
-INT_DEC 0|[1-9][0-9]*
+INT_DEC [-+]?0|[1-9][0-9]*
 /*十六进制*/
 INT_HEX 0[xX][a-fA-F0-9]+
 /*八进制*/
 INT_OCT 0[1-7][0-7]*
 /*二进制*/
 INT_BIN 0[bB][01]+
-
-/* 十六进制错误 */
+/*INT类型汇总*/
+INT {INT_HEX}|{INT_DEC}|{INT_OCT}|{INT_BIN}|{INT_HEX_ERROR}|{INT_OCT_ERROR}|{INT_BIN_ERROR}
+/*浮点数-科学计数法*/
+FLOAT [-+]?((([0-9]+\.[0-9]*)|([0-9]*\.[0-9]+)|INT)[Ee][-+]?[0-9]+)|({INT}\.[0-9])
+/*词法分析输出错误，但是语法分析当做INT进行处理*/
+/*十六进制错误*/
 INT_HEX_ERROR 0[xX][a-fA-F0-9]*[g-zG-Z]+[a-fA-F0-9]*
-/* 八进制错误 */
+/*八进制错误*/
 INT_OCT_ERROR 0[0-7]*[89]+[0-7]*
-/* 二进制错误 */
+/*二进制错误*/
 INT_BIN_ERROR 0[bB][01]*[2-9]+[01]*
 
-/* INT类型汇总 注：词法分析输出错误，但是语法分析当做INT进行处理 */
-INT {INT_HEX}|{INT_DEC}|{INT_OCT}|{INT_BIN}|{INT_HEX_ERROR}|{INT_OCT_ERROR}|{INT_BIN_ERROR}
-
-/* 标识符 */
+/*标识符*/
 ID [a-z_A-Z][a-z_A-Z0-9]*
 
-/* 字符串常量 \042为双引号 */
-STRING              (\042[^\042\n]*\042)
-UNTERM_STRING       (\042[^\042\n]*)
-
-/* 关键字 */
+/*关键字*/
 STRUCT struct
 RETURN return
 IF if
 ELSE else
 WHILE while
-BREAK break
-TYPE int
-PRINT print
-GETINT getInt
+TYPE int|float
 
-/* 符号 */
+/*符号*/
 SEMI  ;
 COMMA ,
 ASSIGNOP  =
 PLUS  \+
 MINUS \-
-MULTI  \*
+STAR  \*
 DIV   \/
 AND   &&
 OR    \|\|
@@ -65,30 +61,31 @@ LC    \{
 RC    \}
 RELOP >|<|>=|<=|==|!=
 
-/* 注释 */
+/*注释*/
 COMMENT ("//".*)|("/*"([*]*(([^*/])+([/])*)*)*"*/")
-
-/* 空白符 */
+/*空白符*/
 SPACE [ \f\r\t\v]+
-
-/* 换行 */
+/*换行*/
 EOL \n
-
-/* 未定义字符 */
+/*未定义字符*/
 AERROR .
 
-
+/*第三部分 操作 action 这里面的注释必须顶格一个空格*/
 %%
-
-{SPACE} { /*empty*/ }
-{COMMENT} { /*empty*/ }
-{EOL} { /*empty*/ }
-
- /* 关键字 */
-{TYPE} {yylval.type_tnode=newAst("TYPE",0,yylineno); return TYPE;}
+ /*跳过空白和注释*/
+{SPACE} {}
+{COMMENT} {}
+{EOL} {}
+ /*关键字*/
+{TYPE} {yylval.type_tnode=newAst("TYPE",0,yylineno);
+	char *str;
+    str = (char *)malloc(sizeof(char) * 40);
+    strcpy(str, yytext);
+    curType = str;
+	return TYPE;}
 {STRUCT} {
 	yylval.type_tnode=newAst("STRUCT",0,yylineno); 
-	// 结构体编号++
+	// 结构体数加一
 	strucNum++; 
 	// 开始扫描结构体定义内容
 	inStruc=1; 
@@ -96,27 +93,21 @@ AERROR .
 {RETURN} {yylval.type_tnode=newAst("RETURN",0,yylineno); return RETURN;}
 {IF} {yylval.type_tnode=newAst("IF",0,yylineno);return IF;}
 {ELSE} {yylval.type_tnode=newAst("ELSE",0,yylineno); return ELSE;}
-{WHILE} {yylval.type_tnode=newAst("WHILE",0,yylineno); return WHILE;} 
-{BREAK} {yylval.type_tnode=newAst("BREAK",0,yylineno); return BREAK;} 
-{PRINT} {yylval.type_tnode=newAst("PRINT",0,yylineno); return PRINT;}
-{GETINT} {yylval.type_tnode=newAst("GETINT",0,yylineno); return GETINT;}
-{STRING} {yylval.type_tnode=newAst("STRING",0,yylineno); return STRING;}
-
- /* 数字类型错误 */
-{INT_HEX_ERROR} {printf("Error TYPE-14 INT_HEX_ERROR at line %d: charachters \"%s\"\n", yylineno, yytext);}
-{INT_OCT_ERROR} {printf("Error TYPE-14 INT_OCT_ERROR at line %d: charachters \"%s\"\n", yylineno, yytext);}
-{INT_BIN_ERROR} {printf("Error TYPE-14 INT_BIN_ERROR at line %d: charachters \"%s\"\n", yylineno, yytext);}
-
- /* 数字类型表示 */
+{WHILE} {yylval.type_tnode=newAst("WHILE",0,yylineno); return WHILE;}
+ /*数字类型错误*/
+{INT_HEX_ERROR} {printf("INT_HEX_ERROR at line %d: charachters \"%s\"\n",yylineno,yytext);}
+{INT_OCT_ERROR} {printf("INT_OCT_ERROR at line %d: charachters \"%s\"\n",yylineno,yytext);}
+{INT_BIN_ERROR} {printf("INT_BIN_ERROR at line %d: charachters \"%s\"\n",yylineno,yytext);}
+ /*数字类型表示*/
 {INT} {yylval.type_tnode=newAst("INT",0,yylineno); return INT;}
-
- /* 符号 */
+{FLOAT} {yylval.type_tnode=newAst("FLOAT",0,yylineno); return FLOAT;}
+ /*符号*/
 {SEMI} {yylval.type_tnode=newAst("SEMI",0,yylineno); return SEMI;}
 {COMMA} {yylval.type_tnode=newAst("COMMA",0,yylineno); return COMMA;}
 {ASSIGNOP} {yylval.type_tnode=newAst("ASSIGNOP",0,yylineno); return ASSIGNOP;}
 {PLUS} {yylval.type_tnode=newAst("PLUS",0,yylineno); return PLUS;}
 {MINUS} {yylval.type_tnode=newAst("MINUS",0,yylineno); return MINUS;}
-{MULTI} {yylval.type_tnode=newAst("MULTI",0,yylineno); return MULTI;}
+{STAR} {yylval.type_tnode=newAst("STAR",0,yylineno); return STAR;}
 {DIV} {yylval.type_tnode=newAst("DIV",0,yylineno); return DIV;}
 {AND} {yylval.type_tnode=newAst("AND",0,yylineno); return AND;}
 {OR} {yylval.type_tnode=newAst("OR",0,yylineno); return OR;}
@@ -128,37 +119,33 @@ AERROR .
 {RB} {yylval.type_tnode=newAst("RB",0,yylineno); return RB;}
 {LC} {
 	yylval.type_tnode=newAst("LC",0,yylineno); 
-	if(inStruc){ // 结构体定义内部存在LC左花括号
+	if(inStruc){
+		// 结构体定义内部存在LC左花括号
 		LCnum++;
 	}
 	return LC;}
 {RC} {
 	yylval.type_tnode=newAst("RC",0,yylineno); 
-	if(inStruc){ // 结构体定义内部存在RC右花括号
+	if(inStruc){
+		// 结构体定义内部存在RC右花括号
 		LCnum--;
 	}
 	return RC;}
 {RELOP} {yylval.type_tnode=newAst("RELOP",0,yylineno); return RELOP;}
-
- /* 标识符 */
+ /*标识符*/
 {ID} {yylval.type_tnode=newAst("ID",0,yylineno); return ID;}
-
- /* 不完整字符串错误 */
-{UNTERM_STRING} {
-	hasFault = 1;
-	printf("Error TYPE-12 at line %d: Unterminate String Constant\n",yylineno);
-}
-
- /* 错误 */
+ /*错误*/
 {AERROR} {
-	hasFault = 1;
-	printf("Error TYPE-13 at line %d: Unrecognized character '%s'\n",yylineno,yytext);
+	hasFault=1;
+	printf("Error type A at line %d: Mystirious charachter '%s'\n",yylineno,yytext);
 }
 %%
 
-/* 当词法分析程序遇到文件结尾时，它调用例程yywrap()来找出下一步要做什么 */
-/* return 0，扫描程序继续扫描；return 1，扫描程序就返回报告文件结尾 */
-int yywrap() {
+/*第四部分 函数 function*/
+int yywrap()
+{
+	/*此函数必须由用户提供,或者声明 %option noyywrap
+	当词法分析程序遇到文件结尾时，它调用例程yywrap()来找出下一步要做什么
+	如果返回0，扫描程序继续扫描，如果返回1，扫描程序就返回报告文件结尾*/
     return 1;
 }
-
