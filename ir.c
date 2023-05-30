@@ -1,16 +1,7 @@
 #include "compiler.h"
 
-/**********************中间代码**************************/
-// 临时变量以及标签
 // 初始化临时变量和标签的数组为-1
 void init_tempvar_lable(){
-    // int i;
-    // for (i = 0; i < 100; i++)
-    // {
-    //     // -1表示该临时变量\标签还未被使用
-    //     tempvar[i] = -1;
-    //     lables[i] = -1;
-    // }
     memset(tempvar, -1, sizeof(tempvar));
     memset(lables, -1, sizeof(lables));
 }
@@ -20,7 +11,7 @@ Operand new_tempvar(){
     int i;
     for (i = 0; i < 100; i ++){
         if (tempvar[i] == -1){
-            tempvar[i] = 1;
+            tempvar[i] = 1; // 标记被使用
             break;
         }
     }
@@ -29,7 +20,7 @@ Operand new_tempvar(){
 
     Operand result = new_Operand();
     result->kind = TEMPVAR;
-    result->operand.tempvar = i + 1;
+    result->operand.tempvar = i + 1; //第几个临时变量
     temp_Operands[i] = result;
 
     return result;
@@ -38,18 +29,18 @@ Operand new_tempvar(){
 // 创建一个新的lable
 Operand new_lable(){
     int i;
-    for (int i = 0; i < 100; i++){
+    for (i = 0; i < 100; i ++){
         if (lables[i] == -1){
-            lables[i] = 1;
+            lables[i] = 1; //标记被使用
             break;
         }
     }
-    if (i >= 100)
+    if (i >= 100) //分配的标签达到上限
         return NULL;
 
     Operand result = new_Operand();
     result->kind = LABLE;
-    result->operand.lable = i + 1;
+    result->operand.lable = i + 1; //第几个标签
 
     return result;
 }
@@ -117,6 +108,34 @@ InterCode new_assign_Code(Operand left, Operand right){
     result->operands.assign.right = right;
 
     return result;
+}
+
+// 获取链表的尾部
+InterCode get_Tail(InterCode codes){
+    InterCode temp = codes;
+    while (temp->next){
+        temp = temp->next;
+    }
+    return temp;
+}
+
+// 在链表末尾加上另一条链表
+InterCode add_Codes(int num, ...){
+    // 参数列表，详见 stdarg.h 用法
+    va_list list;
+    // 初始化参数列表
+    va_start(list, num);
+    // 拼接中间代码
+    InterCode code = va_arg(list, InterCode);
+    InterCode temp = new_Code();
+    InterCode tail = new_Code();
+    for (int i = 1; i < num; i++){
+        tail = get_Tail(code);
+        temp = va_arg(list, InterCode);
+        tail->next = temp;
+        temp->prev = tail;
+    }
+    return code;
 }
 
 // 打印一条中间代码
@@ -260,35 +279,6 @@ void print_Codes(InterCode codes){
     }
     printf("打印完毕\n");
 }
-
-// 获取链表的尾部
-InterCode get_Tail(InterCode codes){
-    InterCode temp = codes;
-    while (temp->next){
-        temp = temp->next;
-    }
-    return temp;
-}
-
-// 在链表末尾加上另一条链表
-InterCode add_Codes(int num, ...){
-    // 参数列表，详见 stdarg.h 用法
-    va_list list;
-    // 初始化参数列表
-    va_start(list, num);
-    // 拼接中间代码
-    InterCode code = va_arg(list, InterCode);
-    InterCode temp = new_Code();
-    InterCode tail = new_Code();
-    for (int i = 1; i < num; i++){
-        tail = get_Tail(code);
-        temp = va_arg(list, InterCode);
-        tail->next = temp;
-        temp->prev = tail;
-    }
-    return code;
-}
-
 
 /*
 整体程序的翻译模式
@@ -510,7 +500,6 @@ InterCode translate_Stmt(tnode Stmt){
 DefList:
     Def DefList
 	| (empty)
-	;
 */
 InterCode translate_DefList(tnode DefList){
     // Def DefList
@@ -555,7 +544,8 @@ InterCode translate_DecList(tnode DecList){
     return new_Code();
 }
 
-/*Dec:
+/*
+Dec:
     VarDec 
 	|VarDec ASSIGNOP Exp //允许 x1 = 10 的形式，即声明时赋值
 */
@@ -575,7 +565,7 @@ InterCode translate_Dec(tnode Dec){
     return new_Code();
 }
 
-// 当Exp的翻译模式为INT、ID、MINUS Exp时，可以获取已经声明过的操作数
+// 优化：当Exp的翻译模式为INT、ID、MINUS Exp时，可以获取已经声明过的操作数
 Operand get_Operand(tnode Exp){
     // INT
     if (Exp->ncld == 1 && !strcmp((Exp->cld)[0]->name, "INT")){
@@ -600,7 +590,7 @@ Operand get_Operand(tnode Exp){
     return NULL;
 }
 
-// 查看是否已经声明过同一个常数值的临时变量
+// 优化：查看是否已经声明过同一个常数值的临时变量
 Operand find_Const(int value){
     for (int i = 0; i < 100; i ++) {
         if (tempvar[i] == -1)
@@ -613,69 +603,74 @@ Operand find_Const(int value){
 
 /*
 基本表达式的翻译模式
-
+Exp:Exp ASSIGNOP Exp
+	|Exp AND Exp
+	|Exp OR Exp
+	|Exp RELOP Exp
+	|Exp PLUS Exp
+	|Exp MINUS Exp
+	|Exp STAR Exp
+	|Exp DIV Exp
+	|LP Exp RP
+	|MINUS Exp 
+	|NOT Exp
+	|ID LP Args RP
+	|ID LP RP
+	|Exp LB Exp RB 
+	|Exp DOT ID 
+	|ID
+	|INT 
+	|FLOAT
 */
-InterCode translate_Exp(tnode Exp, Operand place)
-{
+InterCode translate_Exp(tnode Exp, Operand place){
     int isCond = 0;
     // INT
-    if (Exp->ncld == 1 && !strcmp((Exp->cld)[0]->name, "INT"))
-    {
+    if (Exp->ncld == 1 && !strcmp((Exp->cld)[0]->name, "INT")){
         Operand value = new_Const((Exp->cld)[0]->value);
         InterCode code = new_assign_Code(place, value);
         return code;
     }
     // ID
-    else if (Exp->ncld == 1 && !strcmp((Exp->cld)[0]->name, "ID"))
-    {
+    else if (Exp->ncld == 1 && !strcmp((Exp->cld)[0]->name, "ID")){
         Operand variable = new_Variable((Exp->cld)[0]->content);
         InterCode code = new_assign_Code(place, variable);
         return code;
     }
     // Exp1 ASSIGNOP Exp2
-    else if (Exp->ncld == 3 && !strcmp((Exp->cld)[1]->name, "ASSIGNOP"))
-    {
+    else if (Exp->ncld == 3 && !strcmp((Exp->cld)[1]->name, "ASSIGNOP")){
         // Exp1 -> ID
-        if ((Exp->cld)[0]->ncld == 1 && !strcmp(((Exp->cld)[0]->cld)[0]->name, "ID"))
-        {
+        if ((Exp->cld)[0]->ncld == 1 && !strcmp(((Exp->cld)[0]->cld)[0]->name, "ID")){
             Operand variable = new_Variable(((Exp->cld)[0]->cld)[0]->content);
             Operand existOp = get_Operand((Exp->cld)[2]);
             // 中间代码优化
-            if (existOp == NULL)
-            {
+            if (existOp == NULL){
                 Operand t1 = new_tempvar();
                 InterCode code1 = translate_Exp((Exp->cld)[2], t1);
                 InterCode code2 = new_assign_Code(variable, t1);
                 if (place == NULL)
                     return add_Codes(2, code1, code2);
-                else
-                {
+                else {
                     InterCode code3 = new_assign_Code(place, variable);
                     return add_Codes(3, code1, code2, code3);
                 }
-            }
-            else
-            {
+            } else {
                 return new_assign_Code(variable, existOp);
             }
         }
     }
     // Exp PLUS Exp
-    else if (Exp->ncld == 3 && !strcmp((Exp->cld)[1]->name, "PLUS"))
-    {
+    else if (Exp->ncld == 3 && !strcmp((Exp->cld)[1]->name, "PLUS")){
         Operand op1 = get_Operand((Exp->cld)[0]);
         Operand op2 = get_Operand((Exp->cld)[2]);
-        if (op1 != NULL && op2 != NULL)
-        {
+        if (op1 != NULL && op2 != NULL){
             InterCode code3 = new_Code();
             code3->kind = _ADD;
             code3->operands.binop.result = place;
             code3->operands.binop.op1 = op1;
             code3->operands.binop.op2 = op2;
             return code3;
-        }
-        else if (op1 == NULL && op2 != NULL)
-        {
+        } 
+        else if (op1 == NULL && op2 != NULL) {
             Operand t1 = new_tempvar();
             InterCode code1 = translate_Exp((Exp->cld)[0], t1);
             InterCode code3 = new_Code();
@@ -685,8 +680,7 @@ InterCode translate_Exp(tnode Exp, Operand place)
             code3->operands.binop.op2 = op2;
             return add_Codes(2, code1, code3);
         }
-        else if (op1 != NULL && op2 == NULL)
-        {
+        else if (op1 != NULL && op2 == NULL){
             Operand t2 = new_tempvar();
             InterCode code2 = translate_Exp((Exp->cld)[2], t2);
             InterCode code3 = new_Code();
@@ -696,8 +690,7 @@ InterCode translate_Exp(tnode Exp, Operand place)
             code3->operands.binop.op2 = t2;
             return add_Codes(2, code2, code3);
         }
-        else
-        {
+        else { // op1 == NULL && op2 == NULL
             Operand t1 = new_tempvar();
             Operand t2 = new_tempvar();
             InterCode code1 = translate_Exp((Exp->cld)[0], t1);
@@ -711,12 +704,10 @@ InterCode translate_Exp(tnode Exp, Operand place)
         }
     }
     // Exp MINUS Exp
-    else if (Exp->ncld == 3 && !strcmp((Exp->cld)[1]->name, "MINUS"))
-    {
+    else if (Exp->ncld == 3 && !strcmp((Exp->cld)[1]->name, "MINUS")){
         Operand op1 = get_Operand((Exp->cld)[0]);
         Operand op2 = get_Operand((Exp->cld)[2]);
-        if (op1 != NULL && op2 != NULL)
-        {
+        if (op1 != NULL && op2 != NULL){
             InterCode code3 = new_Code();
             code3->kind = _SUB;
             code3->operands.binop.result = place;
@@ -724,8 +715,7 @@ InterCode translate_Exp(tnode Exp, Operand place)
             code3->operands.binop.op2 = op2;
             return code3;
         }
-        else if (op1 == NULL && op2 != NULL)
-        {
+        else if (op1 == NULL && op2 != NULL){
             Operand t1 = new_tempvar();
             InterCode code1 = translate_Exp((Exp->cld)[0], t1);
             InterCode code3 = new_Code();
@@ -735,8 +725,7 @@ InterCode translate_Exp(tnode Exp, Operand place)
             code3->operands.binop.op2 = op2;
             return add_Codes(2, code1, code3);
         }
-        else if (op1 != NULL && op2 == NULL)
-        {
+        else if (op1 != NULL && op2 == NULL){
             Operand t2 = new_tempvar();
             InterCode code2 = translate_Exp((Exp->cld)[2], t2);
             InterCode code3 = new_Code();
@@ -746,8 +735,7 @@ InterCode translate_Exp(tnode Exp, Operand place)
             code3->operands.binop.op2 = t2;
             return add_Codes(2, code2, code3);
         }
-        else
-        {
+        else{
             Operand t1 = new_tempvar();
             Operand t2 = new_tempvar();
             InterCode code1 = translate_Exp((Exp->cld)[0], t1);
@@ -761,12 +749,10 @@ InterCode translate_Exp(tnode Exp, Operand place)
         }
     }
     // Exp STAR Exp
-    else if (Exp->ncld == 3 && !strcmp((Exp->cld)[1]->name, "STAR"))
-    {
+    else if (Exp->ncld == 3 && !strcmp((Exp->cld)[1]->name, "STAR")){
         Operand op1 = get_Operand((Exp->cld)[0]);
         Operand op2 = get_Operand((Exp->cld)[2]);
-        if (op1 != NULL && op2 != NULL)
-        {
+        if (op1 != NULL && op2 != NULL) {
             InterCode code3 = new_Code();
             code3->kind = _MUL;
             code3->operands.binop.result = place;
@@ -774,8 +760,7 @@ InterCode translate_Exp(tnode Exp, Operand place)
             code3->operands.binop.op2 = op2;
             return code3;
         }
-        else if (op1 == NULL && op2 != NULL)
-        {
+        else if (op1 == NULL && op2 != NULL) {
             Operand t1 = new_tempvar();
             InterCode code1 = translate_Exp((Exp->cld)[0], t1);
             InterCode code3 = new_Code();
@@ -785,8 +770,7 @@ InterCode translate_Exp(tnode Exp, Operand place)
             code3->operands.binop.op2 = op2;
             return add_Codes(2, code1, code3);
         }
-        else if (op1 != NULL && op2 == NULL)
-        {
+        else if (op1 != NULL && op2 == NULL) {
             Operand t2 = new_tempvar();
             InterCode code2 = translate_Exp((Exp->cld)[2], t2);
             InterCode code3 = new_Code();
@@ -796,8 +780,7 @@ InterCode translate_Exp(tnode Exp, Operand place)
             code3->operands.binop.op2 = t2;
             return add_Codes(2, code2, code3);
         }
-        else
-        {
+        else {
             Operand t1 = new_tempvar();
             Operand t2 = new_tempvar();
             InterCode code1 = translate_Exp((Exp->cld)[0], t1);
@@ -811,12 +794,10 @@ InterCode translate_Exp(tnode Exp, Operand place)
         }
     }
     // Exp DIV Exp
-    else if (Exp->ncld == 3 && !strcmp((Exp->cld)[1]->name, "DIV"))
-    {
+    else if (Exp->ncld == 3 && !strcmp((Exp->cld)[1]->name, "DIV")){
         Operand op1 = get_Operand((Exp->cld)[0]);
         Operand op2 = get_Operand((Exp->cld)[2]);
-        if (op1 != NULL && op2 != NULL)
-        {
+        if (op1 != NULL && op2 != NULL){
             InterCode code3 = new_Code();
             code3->kind = _DIV;
             code3->operands.binop.result = place;
@@ -824,8 +805,7 @@ InterCode translate_Exp(tnode Exp, Operand place)
             code3->operands.binop.op2 = op2;
             return code3;
         }
-        else if (op1 == NULL && op2 != NULL)
-        {
+        else if (op1 == NULL && op2 != NULL){
             Operand t1 = new_tempvar();
             InterCode code1 = translate_Exp((Exp->cld)[0], t1);
             InterCode code3 = new_Code();
@@ -835,8 +815,7 @@ InterCode translate_Exp(tnode Exp, Operand place)
             code3->operands.binop.op2 = op2;
             return add_Codes(2, code1, code3);
         }
-        else if (op1 != NULL && op2 == NULL)
-        {
+        else if (op1 != NULL && op2 == NULL){
             Operand t2 = new_tempvar();
             InterCode code2 = translate_Exp((Exp->cld)[2], t2);
             InterCode code3 = new_Code();
@@ -846,8 +825,7 @@ InterCode translate_Exp(tnode Exp, Operand place)
             code3->operands.binop.op2 = t2;
             return add_Codes(2, code2, code3);
         }
-        else
-        {
+        else{
             Operand t1 = new_tempvar();
             Operand t2 = new_tempvar();
             InterCode code1 = translate_Exp((Exp->cld)[0], t1);
@@ -861,8 +839,7 @@ InterCode translate_Exp(tnode Exp, Operand place)
         }
     }
     // MINUS Exp
-    else if (Exp->ncld == 2 && !strcmp((Exp->cld)[0]->name, "MINUS"))
-    {
+    else if (Exp->ncld == 2 && !strcmp((Exp->cld)[0]->name, "MINUS")){
         Operand t1 = new_tempvar();
         InterCode code1 = translate_Exp((Exp->cld)[1], t1);
         InterCode code2 = new_Code();
@@ -873,42 +850,35 @@ InterCode translate_Exp(tnode Exp, Operand place)
         return add_Codes(2, code1, code2);
     }
     // Exp RELOP Exp
-    else if (Exp->ncld == 3 && !strcmp((Exp->cld)[1]->name, "RELOP"))
-    {
+    else if (Exp->ncld == 3 && !strcmp((Exp->cld)[1]->name, "RELOP")){
         isCond = 1;
     }
     // NOT Exp
-    else if (Exp->ncld == 2 && !strcmp((Exp->cld)[0]->name, "NOT"))
-    {
+    else if (Exp->ncld == 2 && !strcmp((Exp->cld)[0]->name, "NOT")){
         isCond = 1;
     }
     // Exp AND Exp
-    else if (Exp->ncld == 3 && !strcmp((Exp->cld)[1]->name, "AND"))
-    {
+    else if (Exp->ncld == 3 && !strcmp((Exp->cld)[1]->name, "AND")){
         isCond = 1;
     }
     // Exp OR Exp
-    else if (Exp->ncld == 3 && !strcmp((Exp->cld)[1]->name, "OR"))
-    {
+    else if (Exp->ncld == 3 && !strcmp((Exp->cld)[1]->name, "OR")){
         isCond = 1;
     }
     // ID LP RP
-    else if (Exp->ncld == 3 && !strcmp((Exp->cld)[1]->name, "LP"))
-    {
+    else if (Exp->ncld == 3 && !strcmp((Exp->cld)[1]->name, "LP")){
         Operand function = new_Operand();
         function->kind = FUNC;
         function->operand.name = (Exp->cld)[0]->content;
-        if (!strcmp(function->operand.name, "read"))
-        {
-            // READ函数处理
+        // READ函数处理
+        if (!strcmp(function->operand.name, "read")){
             InterCode code = new_Code();
             code->kind = _READ;
             code->operands.var = place;
             return code;
         }
-        else
-        {
-            // 其他函数处理
+        // 其他函数处理
+        else {
             InterCode code = new_Code();
             code->kind = _CALL;
             code->operands.assign.left = place;
@@ -917,9 +887,7 @@ InterCode translate_Exp(tnode Exp, Operand place)
         }
     }
     // ID LP Args RP
-    else if (Exp->ncld == 4 && !strcmp((Exp->cld)[2]->name, "Args"))
-    {
-        int i;
+    else if (Exp->ncld == 4 && !strcmp((Exp->cld)[2]->name, "Args")){
         Operand function = new_Operand();
         function->kind = FUNC;
         function->operand.name = (Exp->cld)[0]->content;
@@ -927,17 +895,16 @@ InterCode translate_Exp(tnode Exp, Operand place)
         arg_list->num = 0;
         InterCode code1 = translate_Args((Exp->cld)[2], arg_list);
         InterCode code2, code3;
-        if (!strcmp(function->operand.name, "write"))
-        {
+        // WRITE函数处理
+        if (!strcmp(function->operand.name, "write")){
             code2 = new_Code();
             code2->kind = _WRITE;
             code2->operands.var = (arg_list->list)[0];
             return add_Codes(2, code1, code2);
         }
-        else
-        {
-            for (i = 0; i < arg_list->num; i++)
-            {
+        // 其他带参函数处理
+        else {
+            for (int i = 0; i < arg_list->num; i ++){
                 code2 = new_Code();
                 code2->kind = _ARG;
                 code2->operands.var = (arg_list->list)[i];
@@ -949,15 +916,14 @@ InterCode translate_Exp(tnode Exp, Operand place)
             code3->operands.assign.right = function;
             return add_Codes(2, code1, code3);
         }
+    } 
+    else {
+        printf("不支持该类型的语句\n");
     }
-    else
-    {
-        printf("不能处理该类型的语句\n");
-    }
-    if (isCond)
-    {
-        Operand lable1 = new_lable();
-        Operand lable2 = new_lable();
+
+    if (isCond) {
+        Operand lable1 = new_lable(); // lable_true
+        Operand lable2 = new_lable(); // lable_false
         InterCode code0 = new_assign_Code(place, new_Const(0));
         InterCode code1 = translate_Cond(Exp, lable1, lable2);
         InterCode code2 = add_Codes(2, new_lable_Code(lable1), new_assign_Code(place, new_Const(1)));
@@ -965,12 +931,11 @@ InterCode translate_Exp(tnode Exp, Operand place)
     }
     return new_Code();
 }
+
 // 条件表达式的翻译模式
-InterCode translate_Cond(tnode Exp, Operand lable_true, Operand lable_false)
-{
+InterCode translate_Cond(tnode Exp, Operand lable_true, Operand lable_false){
     // Exp RELOP Exp
-    if (Exp->ncld == 3 && !strcmp((Exp->cld)[1]->name, "RELOP"))
-    {
+    if (Exp->ncld == 3 && !strcmp((Exp->cld)[1]->name, "RELOP")){
         Operand op1 = get_Operand((Exp->cld)[0]);
         Operand op2 = get_Operand((Exp->cld)[2]);
         InterCode code3 = new_Code();
@@ -978,8 +943,7 @@ InterCode translate_Cond(tnode Exp, Operand lable_true, Operand lable_false)
         code3->operands.jump.lable = lable_true;
         code3->operands.jump.relop = (Exp->cld)[1]->content;
         // 中间代码优化
-        if (op1 == NULL && op2 == NULL)
-        {
+        if (op1 == NULL && op2 == NULL){
             Operand t1 = new_tempvar();
             Operand t2 = new_tempvar();
             InterCode code1 = translate_Exp((Exp->cld)[0], t1);
@@ -988,53 +952,46 @@ InterCode translate_Cond(tnode Exp, Operand lable_true, Operand lable_false)
             code3->operands.jump.op2 = t2;
             return add_Codes(4, code1, code2, code3, new_goto_Code(lable_false));
         }
-        else if (op1 == NULL && op2 != NULL)
-        {
+        else if (op1 == NULL && op2 != NULL){
             Operand t1 = new_tempvar();
             InterCode code1 = translate_Exp((Exp->cld)[0], t1);
             code3->operands.jump.op1 = t1;
             code3->operands.jump.op2 = op2;
             return add_Codes(3, code1, code3, new_goto_Code(lable_false));
         }
-        else if (op1 != NULL && op2 == NULL)
-        {
+        else if (op1 != NULL && op2 == NULL){
             Operand t2 = new_tempvar();
             InterCode code2 = translate_Exp((Exp->cld)[2], t2);
             code3->operands.jump.op1 = op1;
             code3->operands.jump.op2 = t2;
             return add_Codes(3, code2, code3, new_goto_Code(lable_false));
         }
-        else if (op1 != NULL && op2 != NULL)
-        {
+        else if (op1 != NULL && op2 != NULL){
             code3->operands.jump.op1 = op1;
             code3->operands.jump.op2 = op2;
             return add_Codes(2, code3, new_goto_Code(lable_false));
         }
     }
     // NOT Exp
-    else if (Exp->ncld == 2 && !strcmp((Exp->cld)[0]->name, "NOT"))
-    {
+    else if (Exp->ncld == 2 && !strcmp((Exp->cld)[0]->name, "NOT")){
         return translate_Cond((Exp->cld)[1], lable_false, lable_true);
     }
     // Exp AND Exp
-    else if (Exp->ncld == 3 && !strcmp((Exp->cld)[1]->name, "AND"))
-    {
+    else if (Exp->ncld == 3 && !strcmp((Exp->cld)[1]->name, "AND")){
         Operand lable1 = new_lable();
         InterCode code1 = translate_Cond((Exp->cld)[0], lable1, lable_false);
         InterCode code2 = translate_Cond((Exp->cld)[2], lable_true, lable_false);
         return add_Codes(3, code1, new_lable_Code(lable1), code2);
     }
     // Exp OR Exp
-    else if (Exp->ncld == 3 && !strcmp((Exp->cld)[1]->name, "OR"))
-    {
+    else if (Exp->ncld == 3 && !strcmp((Exp->cld)[1]->name, "OR")){
         Operand lable1 = new_lable();
         InterCode code1 = translate_Cond((Exp->cld)[0], lable_true, lable1);
         InterCode code2 = translate_Cond((Exp->cld)[2], lable_true, lable_false);
         return add_Codes(3, code1, new_lable_Code(lable1), code2);
     }
-    // orther cases
-    else
-    {
+    // 其他情况 if(a) while(4) ...
+    else{
         Operand t1 = new_tempvar();
         InterCode code1 = translate_Exp(Exp, t1);
         InterCode code2 = new_Code();
@@ -1047,17 +1004,14 @@ InterCode translate_Cond(tnode Exp, Operand lable_true, Operand lable_false)
         return add_Codes(3, code1, code2, new_goto_Code(lable_false));
     }
 }
+
 // 函数参数的翻译模式
-InterCode translate_Args(tnode Args, ArgList arg_list)
-{
+InterCode translate_Args(tnode Args, ArgList arg_list){
     // Exp
-    if (Args->ncld == 1)
-    {
+    if (Args->ncld == 1){
         Operand existOp = get_Operand((Args->cld)[0]);
-        if (existOp != NULL)
-        {
-            if (existOp->kind == CONSTANT)
-            {
+        if (existOp != NULL){
+            if (existOp->kind == CONSTANT){
                 Operand t1 = new_tempvar();
                 InterCode code1 = new_assign_Code(t1, existOp);
                 arg_list->list[arg_list->num] = t1;
@@ -1075,8 +1029,7 @@ InterCode translate_Args(tnode Args, ArgList arg_list)
         return code1;
     }
     // Exp COMMA Args
-    else if (Args->ncld == 3)
-    {
+    else if (Args->ncld == 3){
         Operand t1 = new_tempvar();
         InterCode code1 = translate_Exp((Args->cld)[0], t1);
         arg_list->list[arg_list->num] = t1;

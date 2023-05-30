@@ -6,8 +6,7 @@
 
 %union{
     tnode type_tnode;
-	// 这里声明double是为了防止出现指针错误（segmentation fault）
-	double d;
+	double d; // 防止出现 segmentation fault 
 }
 
 /*声明记号*/
@@ -19,7 +18,6 @@
 %type  <type_tnode> OptTag Tag VarDec FunDec VarList ParamDec Compst StmtList Stmt DefList Def DecList Dec Exp Args
 
 /*优先级*/
-/*C-minus中定义的运算符的优先级，并没有包括所有C语言的*/
 %nonassoc LOWER_THAN_ELSE 
 %nonassoc ELSE
 %left COMMA
@@ -34,7 +32,7 @@
 
 
 /*产生式*/
-/*$$表示左表达式 ${num}表示右边的第几个表达式*/
+/* $$表示左表达式 ${num}表示右边的第几个表达式 */
 %%
 /*High-level Definitions*/
 Program:ExtDefList {$$=newAst("Program",1,$1); }

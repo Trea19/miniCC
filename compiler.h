@@ -1,15 +1,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdarg.h> // 变长参数函数 头文件
+#include <stdarg.h>
 
-/**********************语法分析**************************/
 // 行数
 extern int yylineno;
 // 文本
 extern char *yytext;
-// 错误处理
-void yyerror(char *msg);
+
+/**********************语法分析**************************/
 
 // 抽象语法树
 typedef struct treeNode
@@ -31,22 +30,22 @@ typedef struct treeNode
     float value;
 } * Ast, *tnode;
 
-// 构造抽象语法树(节点)
-Ast newAst(char *name, int num, ...);
-
-// 先序遍历语法树
-void Preorder(Ast ast, int level);
-
 // 所有节点数量
 int nodeNum;
 // 存放所有节点
 tnode nodeList[5000];
 int nodeIsChild[5000];
+// 是否有词法语法错误
+int hasFault;
+
+// 构造抽象语法树
+Ast newAst(char *name, int num, ...);
+// 先序遍历语法树
+void Preorder(Ast ast, int level);
 // 设置节点打印状态
 void setChildTag(tnode node);
-
-// bison是否有词法语法错误
-int hasFault;
+// 错误处理
+void yyerror(char *msg);
 
 /**********************语义分析**************************/
 // 分析语法树，建立符号表
@@ -152,12 +151,12 @@ int LCnum;
 // 当前是第几个结构体
 int strucNum;
 
+
 /**********************中间代码**************************/
-// 中间代码数据结构
-typedef struct _OperandStru // 操作数
-{
-    enum
-    {
+
+// 操作数
+typedef struct _OperandStru {
+    enum{
         VARIABLE, // 变量 x
         TEMPVAR,  // 临时变量 t1
         LABLE,    // 标签 lable1
@@ -174,11 +173,11 @@ typedef struct _OperandStru // 操作数
     } operand;
     int value;
 } OperandStru, *Operand;
-typedef struct _InterCodeStru // 中间代码
-{
+
+// 中间代码
+typedef struct _InterCodeStru {
     // 代码类型
-    enum
-    {
+    enum{
         _LABLE,    // 定义标号
         _FUNCTION, // 定义函数
         _ASSIGN,   // =
@@ -198,40 +197,48 @@ typedef struct _InterCodeStru // 中间代码
     } kind;
     // 操作数
     union {
-        struct
-        { // 赋值 取地址 函数调用等
+        // 赋值 取地址 函数调用等
+        struct { 
             Operand left, right;
         } assign;
-        struct
-        { // 双目运算 + = * /
+        // 双目运算 + = * /
+        struct { 
             Operand result, op1, op2;
         } binop;
-        struct
-        { // GOTO 和 IF...GOTO
+        // GOTO 和 IF...GOTO
+        struct{ 
             Operand lable, op1, op2;
             char *relop;
         } jump;
         // 函数声明、参数声明、标签、传实参、函数返回、读取x、打印x
         Operand var;
     } operands;
+    // 双向链表存中间代码
     struct _InterCodeStru *prev, *next;
 } InterCodeStru, *InterCode;
+
 // 函数参数列表
-typedef struct _ArgListStru
-{
+typedef struct _ArgListStru {
     int num;
     Operand list[10];
 } ArgListStru, *ArgList;
 
-InterCode CodesHead, CodesTail; // 全局变量，线性IR双链表的首尾
-
-// 临时变量t1和标签lable1
+// 全局变量，线性IR双链表的首尾
+InterCode CodesHead, CodesTail; 
+// 临时变量
 int tempvar[100];
+// 临时变量对应的操作数
 Operand temp_Operands[100];
+// 标签lable
 int lables[100];
+
+// 生成新的临时变量
 Operand new_tempvar();
+// 生成新的标签
 Operand new_lable();
+// 初始化所有临时变量和标签
 void init_tempvar_lable();
+
 // 当Exp的翻译模式为INT、ID、MINUS Exp时，可以获取已经申明过的操作数
 Operand get_Operand(tnode Exp);
 // 查看是否已经声明过同一个常数值的操作数
@@ -281,7 +288,7 @@ InterCode translate_StmtList(tnode);
 // 语句的翻译模式
 InterCode translate_Stmt(tnode Stmt);
 
-// 变量声明、初始化的翻译模式
+// 变量的翻译模式
 InterCode translate_DefList(tnode DefList);
 InterCode translate_Def(tnode Def);
 InterCode translate_DecList(tnode DecList);
@@ -293,3 +300,17 @@ InterCode translate_Exp(tnode Exp, Operand place);
 InterCode translate_Cond(tnode Exp, Operand lable_true, Operand lable_false);
 // 函数参数的翻译模式
 InterCode translate_Args(tnode Args, ArgList arg_list);
+
+
+
+/**********************目标代码**************************/
+// 整数转字符串
+char* Int2String(int num,char *str);
+// 20个寄存器所存储的内容
+Operand regs[20];
+int reg_num;
+// 分配寄存器
+char* allocate_reg(Operand op);
+// 根据中间代码生成mips代码
+void generate_MIPS_Codes(InterCode codes);
+void generate_MIPS_Code(InterCode code);
