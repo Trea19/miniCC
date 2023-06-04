@@ -90,7 +90,7 @@ int main(int argc, char **argv)
                 Preorder(nodeList[j], 0);
                 InterCode codes = translate_Program(nodeList[j]);
                 print_Codes(codes);
-                //generate_MIPS_Codes(codes);
+                generate_MIPS_Codes(codes);
             }
         }
     }

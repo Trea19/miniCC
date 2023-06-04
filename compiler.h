@@ -304,11 +304,13 @@ InterCode translate_Args(tnode Args, ArgList arg_list);
 
 
 /**********************目标代码**************************/
+
 // 整数转字符串
-char* Int2String(int num,char *str);
+char* Int2String(int num, char *str);
 // 20个寄存器所存储的内容
 Operand regs[20];
 int reg_num;
+
 // 分配寄存器
 char* allocate_reg(Operand op);
 // 根据中间代码生成mips代码
