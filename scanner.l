@@ -1,8 +1,21 @@
 %{
-	#include <stdlib.h>
-	#include <stdio.h>
-    #include "compiler.h"
-    #include "parse.tab.h"
+#include <stdlib.h>
+#include <stdio.h>
+#include "compiler.h"
+#include "parser.tab.h"
+
+int error_flag = 0;
+int empty_flag = 1;
+
+ASTNode *root;
+
+int yycolumn = 1;
+extern YYLTYPE yylloc;
+#define YY_USER_ACTION \
+    yylloc.first_line = yylloc.last_line = yylineno; \
+    yylloc.first_column = yycolumn; \
+    yylloc.last_column = yycolumn + yyleng - 1; \
+    yycolumn += yyleng;
 %}
 
 /*开放flex yylineno选项，自动记录行号*/
@@ -72,9 +85,9 @@ AERROR .
 
 
 %%
-{SPACE} {}
-{COMMENT} {}
-{EOL} {}
+{SPACE}         {}
+{COMMENT}       {}
+{EOL}           {yycolumn = 1;}
 {INT}			{yylval.node = create_node("INT", yytext, INT, yylloc.first_line); return INT;}
 {BININT}		{yylval.node = create_node("INT", yytext, INT, yylloc.first_line); yylval.node->int_type = 1; return INT; }
 {OCTINT}		{yylval.node = create_node("INT", yytext, INT, yylloc.first_line); yylval.node->int_type = 2; return INT; }
