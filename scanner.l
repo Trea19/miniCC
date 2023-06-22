@@ -1,4 +1,3 @@
-/*第一部分 头文件和变量*/
 %{
 	#include <stdlib.h>
 	#include <stdio.h>
@@ -6,34 +5,30 @@
     #include "parse.tab.h"
 %}
 
-/*flex属性,记录符号所在行号*/
-%option yylineno
+/*开放flex yylineno选项，自动记录行号*/
+%option yylineno  
 
-/*第二部分 定义正则表达式*/
-/*十进制*/
-INT_DEC [-+]?0|[1-9][0-9]*
-/*十六进制*/
-INT_HEX 0[xX][a-fA-F0-9]+
-/*八进制*/
-INT_OCT 0[1-7][0-7]*
-/*二进制*/
-INT_BIN 0[bB][01]+
-/*INT类型汇总*/
-INT {INT_HEX}|{INT_DEC}|{INT_OCT}|{INT_BIN}|{INT_HEX_ERROR}|{INT_OCT_ERROR}|{INT_BIN_ERROR}
-/*浮点数-科学计数法*/
-FLOAT [-+]?((([0-9]+\.[0-9]*)|([0-9]*\.[0-9]+)|INT)[Ee][-+]?[0-9]+)|({INT}\.[0-9])
-/*词法分析输出错误，但是语法分析当做INT进行处理*/
-/*十六进制错误*/
+/*INT*/
+INT_BIN (0[bB][01]+)
+INT_BIN_ERROR (0[bB][01]*[2-9a-zA-Z]+[01]*)
+
+INT_DEC (0|[1-9][0-9]*)
+
+INT_OCT (0[0-7]+)
+INT_OCT_ERROR (0[0-7]*[89a-zA-Z]+[0-7]*)
+
+INT_HEX (0[xX][a-fA-F0-9]+)
 INT_HEX_ERROR 0[xX][a-fA-F0-9]*[g-zG-Z]+[a-fA-F0-9]*
-/*八进制错误*/
-INT_OCT_ERROR 0[0-7]*[89]+[0-7]*
-/*二进制错误*/
-INT_BIN_ERROR 0[bB][01]*[2-9]+[01]*
 
-/*标识符*/
-ID [a-z_A-Z][a-z_A-Z0-9]*
+/*FLOAT*/
+FLOAT			([0-9]*\.[0-9]+|[0-9]+\.)
+FLOAT_E			{FLOAT}[Ee][+-]?[0-9]+
+FLOAT_ERROR		({FLOAT}[Ee][+-]?)|({FLOAT}[Ee][+-]?[0-9]*\.[0-9]*)
 
-/*关键字*/
+/*ID*/
+ID [_a-zA-Z][a-z_A-Z0-9]*
+
+/*KEY WORD*/
 STRUCT struct
 RETURN return
 IF if
@@ -41,9 +36,17 @@ ELSE else
 WHILE while
 TYPE int|float
 
-/*符号*/
+/*BOUND SYMBOL*/
 SEMI  ;
 COMMA ,
+LP    \(
+RP    \)
+LB    \[
+RB    \]
+LC    \{
+RC    \}
+
+/*OPERATOR*/
 ASSIGNOP  =
 PLUS  \+
 MINUS \-
@@ -53,99 +56,61 @@ AND   &&
 OR    \|\|
 DOT   \.
 NOT   \!
-LP    \(
-RP    \)
-LB    \[
-RB    \]
-LC    \{
-RC    \}
 RELOP >|<|>=|<=|==|!=
 
-/*注释*/
-COMMENT ("//".*)|("/*"([*]*(([^*/])+([/])*)*)*"*/")
-/*空白符*/
-SPACE [ \f\r\t\v]+
-/*换行*/
+/*COMMENT*/
+COMMENT ("//"[^\n]*)|("/*"([^*]*"*"+[^*/])*[^*]*"*"+"/")
+
+/*SPACE*/
+SPACE [ \t]+
+
+/*END OF LINE*/
 EOL \n
-/*未定义字符*/
+
+/*UNDEFINED*/
 AERROR .
 
-/*第三部分 操作 action 这里面的注释必须顶格一个空格*/
+
 %%
- /*跳过空白和注释*/
 {SPACE} {}
 {COMMENT} {}
 {EOL} {}
- /*关键字*/
-{TYPE} {yylval.type_tnode=newAst("TYPE",0,yylineno);
-	char *str;
-    str = (char *)malloc(sizeof(char) * 40);
-    strcpy(str, yytext);
-    curType = str;
-	return TYPE;}
-{STRUCT} {
-	yylval.type_tnode=newAst("STRUCT",0,yylineno); 
-	// 结构体数加一
-	strucNum++; 
-	// 开始扫描结构体定义内容
-	inStruc=1; 
-	return STRUCT;}
-{RETURN} {yylval.type_tnode=newAst("RETURN",0,yylineno); return RETURN;}
-{IF} {yylval.type_tnode=newAst("IF",0,yylineno);return IF;}
-{ELSE} {yylval.type_tnode=newAst("ELSE",0,yylineno); return ELSE;}
-{WHILE} {yylval.type_tnode=newAst("WHILE",0,yylineno); return WHILE;}
- /*数字类型错误*/
-{INT_HEX_ERROR} {printf("INT_HEX_ERROR at line %d: charachters \"%s\"\n",yylineno,yytext);}
-{INT_OCT_ERROR} {printf("INT_OCT_ERROR at line %d: charachters \"%s\"\n",yylineno,yytext);}
-{INT_BIN_ERROR} {printf("INT_BIN_ERROR at line %d: charachters \"%s\"\n",yylineno,yytext);}
- /*数字类型表示*/
-{INT} {yylval.type_tnode=newAst("INT",0,yylineno); return INT;}
-{FLOAT} {yylval.type_tnode=newAst("FLOAT",0,yylineno); return FLOAT;}
- /*符号*/
-{SEMI} {yylval.type_tnode=newAst("SEMI",0,yylineno); return SEMI;}
-{COMMA} {yylval.type_tnode=newAst("COMMA",0,yylineno); return COMMA;}
-{ASSIGNOP} {yylval.type_tnode=newAst("ASSIGNOP",0,yylineno); return ASSIGNOP;}
-{PLUS} {yylval.type_tnode=newAst("PLUS",0,yylineno); return PLUS;}
-{MINUS} {yylval.type_tnode=newAst("MINUS",0,yylineno); return MINUS;}
-{STAR} {yylval.type_tnode=newAst("STAR",0,yylineno); return STAR;}
-{DIV} {yylval.type_tnode=newAst("DIV",0,yylineno); return DIV;}
-{AND} {yylval.type_tnode=newAst("AND",0,yylineno); return AND;}
-{OR} {yylval.type_tnode=newAst("OR",0,yylineno); return OR;}
-{DOT} {yylval.type_tnode=newAst("DOT",0,yylineno); return DOT;}
-{NOT} {yylval.type_tnode=newAst("NOT",0,yylineno); return NOT;}
-{LP} {yylval.type_tnode=newAst("LP",0,yylineno); return LP;}
-{RP} {yylval.type_tnode=newAst("RP",0,yylineno); return RP;}
-{LB} {yylval.type_tnode=newAst("LB",0,yylineno); return LB;}
-{RB} {yylval.type_tnode=newAst("RB",0,yylineno); return RB;}
-{LC} {
-	yylval.type_tnode=newAst("LC",0,yylineno); 
-	if(inStruc){
-		// 结构体定义内部存在LC左花括号
-		LCnum++;
-	}
-	return LC;}
-{RC} {
-	yylval.type_tnode=newAst("RC",0,yylineno); 
-	if(inStruc){
-		// 结构体定义内部存在RC右花括号
-		LCnum--;
-	}
-	return RC;}
-{RELOP} {yylval.type_tnode=newAst("RELOP",0,yylineno); return RELOP;}
- /*标识符*/
-{ID} {yylval.type_tnode=newAst("ID",0,yylineno); return ID;}
- /*错误*/
-{AERROR} {
-	hasFault=1;
-	printf("Error type A at line %d: Mystirious charachter '%s'\n",yylineno,yytext);
-}
+{INT}			{yylval.node = create_node("INT", yytext, INT, yylloc.first_line); return INT;}
+{BININT}		{yylval.node = create_node("INT", yytext, INT, yylloc.first_line); yylval.node->int_type = 1; return INT; }
+{OCTINT}		{yylval.node = create_node("INT", yytext, INT, yylloc.first_line); yylval.node->int_type = 2; return INT; }
+{HEXINT}		{yylval.node = create_node("INT", yytext, INT, yylloc.first_line); yylval.node->int_type = 2; return INT; }
+{FLOAT}			{yylval.node = create_node("FLOAT", yytext, FLOAT, yylloc.first_line); return FLOAT; }
+{FLOAT_E}		{yylval.node = create_node("FLOAT", yytext, FLOAT, yylloc.first_line); return FLOAT; }
+{INT_BIN_ERROR} {printf("Error type A at Line %d: Illegal binary number \'%s\'.\n", yylineno, yytext); error_flag = 1;}
+{INT_OCT_ERROR} {printf("Error type A at Line %d: Illegal octal number \'%s\'.\n", yylineno, yytext); error_flag = 1;}
+{INT_HEX_ERROR} {printf("Error type A at Line %d: Illegal hexadecimal number \'%s\'.\n", yylineno, yytext); error_flag = 1;}
+{FLOAT_ERROR}	{printf("Error type A at Line %d: Illegal floating point number \'%s\'.\n", yylineno, yytext); error_flag = 1;}
+{STRUCT}		{yylval.node = create_node("STRUCT", yytext, STRUCT, yylloc.first_line); return STRUCT; }
+{RETURN}		{yylval.node = create_node("RETURN", yytext, RETURN, yylloc.first_line); return RETURN; }
+{IF}			{yylval.node = create_node("IF", yytext, IF, yylloc.first_line); return IF; }
+{ELSE}			{yylval.node = create_node("ELSE", yytext, ELSE, yylloc.first_line); return ELSE; }
+{WHILE}			{yylval.node = create_node("WHILE", yytext, WHILE, yylloc.first_line); return WHILE; }
+{TYPE}			{yylval.node = create_node("TYPE", yytext, TYPE, yylloc.first_line); return TYPE; }
+{ID}			{yylval.node = create_node("ID", yytext, ID, yylloc.first_line); return ID; }
+{SEMI} 			{yylval.node = create_node("SEMI", yytext, SEMI, yylloc.first_line); return SEMI; }
+{COMMA}			{yylval.node = create_node("COMMA", yytext, COMMA, yylloc.first_line); return COMMA; }
+{ASSIGNOP}		{yylval.node = create_node("ASSIGNOP", yytext, ASSIGNOP, yylloc.first_line); return ASSIGNOP; }
+{RELOP}			{yylval.node = create_node("RELOP", yytext, RELOP, yylloc.first_line); return RELOP; }
+{PLUS}			{yylval.node = create_node("PLUS", yytext, PLUS, yylloc.first_line); return PLUS; }
+{MINUS}			{yylval.node = create_node("MINUS", yytext, MINUS, yylloc.first_line); return MINUS; }
+{STAR}			{yylval.node = create_node("STAR", yytext, STAR, yylloc.first_line); return STAR; }
+{DIV}			{yylval.node = create_node("DIV", yytext, DIV, yylloc.first_line); return DIV; }
+{AND}			{yylval.node = create_node("AND", yytext, AND, yylloc.first_line); return AND; }
+{OR}			{yylval.node = create_node("OR", yytext, OR, yylloc.first_line); return OR; }
+{DOT}			{yylval.node = create_node("DOT", yytext, DOT, yylloc.first_line); return DOT; }
+{NOT}			{yylval.node = create_node("NOT", yytext, NOT, yylloc.first_line); return NOT; }
+{LP}			{yylval.node = create_node("LP", yytext, LP, yylloc.first_line); return LP; }
+{RP}			{yylval.node = create_node("RP", yytext, RP, yylloc.first_line); return RP; }
+{LB}			{yylval.node = create_node("LB", yytext, LB, yylloc.first_line); return LB; }
+{RB}			{yylval.node = create_node("RB", yytext, RB, yylloc.first_line); return RB; }
+{LC}			{yylval.node = create_node("LC", yytext, LC, yylloc.first_line); return LC; }
+{RC}			{yylval.node = create_node("RC", yytext, RC, yylloc.first_line); return RC; }
+{AERROR}        {printf("Error type A at Line %d: Mysterious characters \"%s\".\n", yylineno, yytext); error_flag = 1; }
+
 %%
 
-/*第四部分 函数 function*/
-int yywrap()
-{
-	/*此函数必须由用户提供,或者声明 %option noyywrap
-	当词法分析程序遇到文件结尾时，它调用例程yywrap()来找出下一步要做什么
-	如果返回0，扫描程序继续扫描，如果返回1，扫描程序就返回报告文件结尾*/
-    return 1;
-}

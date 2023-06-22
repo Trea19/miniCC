@@ -307,8 +307,8 @@ InterCode translate_Args(tnode Args, ArgList arg_list);
 
 // 整数转字符串
 char* Int2String(int num, char *str);
-// 20个寄存器所存储的内容
-Operand regs[20];
+// 10个寄存器所存储的内容
+Operand regs[15];
 int reg_num;
 
 // 分配寄存器

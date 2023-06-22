@@ -73,7 +73,7 @@ char* allocate_reg(Operand op){
         strcat(regname, regnumber);
         regs[reg_num] = op;
         reg_num++;
-        if (reg_num == 20) {
+        if (reg_num == 10) {
             reg_num = 0;
         }
         return regname;
