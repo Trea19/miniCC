@@ -68,10 +68,19 @@ char* allocate_reg(Operand op){
         Int2String(i, regnumber);
         strcat(regname, regnumber);
         return regname;
-    } else { // 分配空闲寄存器
-        Int2String(reg_num, regnumber);
-        strcat(regname, regnumber);
-        regs[reg_num] = op;
+    } else { 
+        // 从主存中找 
+        // todo
+        // 主存中没找到，分配寄存器
+        if (regs[reg_num] == NULL) { //存在空闲寄存器
+            Int2String(reg_num, regnumber);
+            strcat(regname, regnumber);
+            regs[reg_num] = op;
+        }
+        else { // 将寄存器的内容存到主存，腾出寄存器空间
+            //todo
+        }
+        
         reg_num++;
         if (reg_num == 10) {
             reg_num = 0;
@@ -170,6 +179,10 @@ void generate_MIPS_Code(InterCode code){
     }
     case _CALL:
     {
+        printf("\tjal ");
+        print_Operand(code->operands.var);
+        printf("\n");
+        printf("\tmove %s, $v0\n", allocate_reg(code->operands.assign.left));
         break;
     }
     case _READ:

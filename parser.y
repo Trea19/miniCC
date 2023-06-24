@@ -358,7 +358,7 @@ Args :
 %%
 
 int yyerror(const char* msg) {
-	error_flag = 1;
-	printf("Error type B at Line %d: %s.\n", yylineno, msg);
-	return 0;
+    error_flag = 1;
+    printf("Error type B at Line %d: %s.\n", yylineno, msg);
+    return 0;
 }
