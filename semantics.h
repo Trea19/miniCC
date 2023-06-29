@@ -34,10 +34,10 @@ struct Type_ {
 };
 
 struct Field_List_ {
-    char name[MAX_NAME_LEN];  // name
-    struct Type_* type; // type
+    char name[MAX_NAME_LEN];  
+    struct Type_* type; 
     struct Field_List_* next_struct_field;
-    struct Field_List_* hash_list_next;
+    struct Field_List_* hash_list_index_next;
     struct Field_List_* next_param;
 
     int wrapped_layer;
@@ -49,7 +49,7 @@ struct Field_List_ {
 
 struct Func_ {
     char name[MAX_NAME_LEN];
-    struct Type_* return_type;
+    struct Type_* ret_type;
     int defined;
     int param_num;
     struct Field_List_* first_param;
@@ -77,10 +77,12 @@ static int hash_pjw(char*);
 void init_hash_table();
 void insert_read_func();
 void insert_write_func();
-Func* insert_func_hash_table(unsigned, char*, Type*, Func*);
+Func* insert_func_hash_table(int, char*, Type*, Func*);
+Field_List* insert_field_hash_table(int, char*, Type*, ASTNode*, int, int);
+Field_List* find_field_hash_table(int, char*, ASTNode*, int);
 
-/* start semantic_analysis */
-void semantics_analysis(ASTNode *root);
+/* semantics_analysis */
+void semantics_analysis(ASTNode*);
 
 /* semantics of High-level Definitions */
 void sem_program(ASTNode*);
@@ -114,20 +116,17 @@ Type* sem_exp(ASTNode*);
 Type* sem_args(ASTNode*);
 
 /* helper functions */
-
-Field_List* insert_field_hash_table(unsigned, char*, Type*, ASTNode*, int, int);
-Field_List* query_field_hash_table(unsigned, char*, ASTNode*, int);
-
 Func* insert_func_dec_hash_table(unsigned, char*, Type*, Func*);
 Func* query_func_hash_table(unsigned, char*);
 
 int check_equal_type(Type*, Type*);
+int check_duplicate_field(Type*);
 // int check_struct_equal_type_naive(Type*, Type*);
 // int check_struct_equal_type(Type*, Type*);
-int check_duplicate_field(Type*);
+
 int check_equal_params(Field_List*, Type*);
 int check_twofunc_equal_params(Field_List*, Field_List*);
-void check_undec_func();
+void check_undefined_func();
 void pop_local_var(int);
 Type* struct_type_to_list(Field_List*);
 

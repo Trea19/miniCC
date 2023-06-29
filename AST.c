@@ -13,7 +13,7 @@ ASTNode* create_node(char *name, char *value, int token_type, int lineno){
     node->value = (char*)malloc(sizeof(value));
     strcpy(node->value, value);
 
-    node->row_index = lineno;
+    node->line_num = lineno;
     node->token_type = token_type;
     node->term_type = token_type == -1 ? 1 : 0; // 0 -> token; 1 -> non-terminal
    
@@ -59,7 +59,7 @@ void print_AST(ASTNode *node, int indent){
     }
 
     if (node->term_type == 1){ // non-terminal
-        printf("%s (%d)\n", node->name, node->row_index);
+        printf("%s (%d)\n", node->name, node->line_num);
     }
     else{  // token
         if (strcmp(node->name, "INT") == 0)

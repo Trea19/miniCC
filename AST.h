@@ -17,7 +17,7 @@ typedef struct ASTNode {
     int int_type; // 0 -> Dec; 1 -> Bin; 2 -> Oct; 3 -> Hex
     char *name;
     char *value;
-    int row_index;
+    int line_num;
     struct ASTNode* parent;
     struct ASTNode* first_child;
     struct ASTNode* sibling;
