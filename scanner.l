@@ -1,13 +1,14 @@
 %{
 #include <stdlib.h>
 #include <stdio.h>
-#include "compiler.h"
+#include "AST.h"
 #include "parser.tab.h"
 
 int error_flag = 0;
 int empty_flag = 1;
 
 ASTNode *root;
+FILE* in;
 
 int yycolumn = 1;
 extern YYLTYPE yylloc;
@@ -25,10 +26,10 @@ extern YYLTYPE yylloc;
 INT_BIN (0[bB][01]+)
 INT_BIN_ERROR (0[bB][01]*[2-9a-zA-Z]+[01]*)
 
-INT_DEC (0|[1-9][0-9]*)
-
 INT_OCT (0[0-7]+)
 INT_OCT_ERROR (0[0-7]*[89a-zA-Z]+[0-7]*)
+
+INT_DEC (0|[1-9][0-9]*)
 
 INT_HEX (0[xX][a-fA-F0-9]+)
 INT_HEX_ERROR 0[xX][a-fA-F0-9]*[g-zG-Z]+[a-fA-F0-9]*
@@ -88,10 +89,10 @@ AERROR .
 {SPACE}         {}
 {COMMENT}       {}
 {EOL}           {yycolumn = 1;}
-{INT}			{yylval.node = create_node("INT", yytext, INT, yylloc.first_line); return INT;}
-{BININT}		{yylval.node = create_node("INT", yytext, INT, yylloc.first_line); yylval.node->int_type = 1; return INT; }
-{OCTINT}		{yylval.node = create_node("INT", yytext, INT, yylloc.first_line); yylval.node->int_type = 2; return INT; }
-{HEXINT}		{yylval.node = create_node("INT", yytext, INT, yylloc.first_line); yylval.node->int_type = 2; return INT; }
+{INT_DEC}		{yylval.node = create_node("INT", yytext, INT, yylloc.first_line); return INT;}
+{INT_BIN}		{yylval.node = create_node("INT", yytext, INT, yylloc.first_line); yylval.node->int_type = 1; return INT; }
+{INT_OCT}		{yylval.node = create_node("INT", yytext, INT, yylloc.first_line); yylval.node->int_type = 2; return INT; }
+{INT_HEX}		{yylval.node = create_node("INT", yytext, INT, yylloc.first_line); yylval.node->int_type = 2; return INT; }
 {FLOAT}			{yylval.node = create_node("FLOAT", yytext, FLOAT, yylloc.first_line); return FLOAT; }
 {FLOAT_E}		{yylval.node = create_node("FLOAT", yytext, FLOAT, yylloc.first_line); return FLOAT; }
 {INT_BIN_ERROR} {printf("Error type A at Line %d: Illegal binary number \'%s\'.\n", yylineno, yytext); error_flag = 1;}

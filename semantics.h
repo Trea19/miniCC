@@ -2,7 +2,7 @@
 #define SEMANTICS_H
 
 #define MAX_NAME_LEN 256
-#define MAX_ERROR_INFO_LEN 256
+#define MAX_ERROR_INFO_LEN 512
 #define MAX_HASH_TABLE_LEN 16384
 #define BASIC_INT 1
 #define BASIC_FLOAT 2
@@ -41,7 +41,7 @@ struct Field_List_ {
     struct Field_List_* next_param;
 
     int wrapped_layer;
-    int is_structure;
+    int is_struct;
     int line_num;
     int offset;
     struct Operand *op;
@@ -51,17 +51,17 @@ struct Func_ {
     char name[MAX_NAME_LEN];
     struct Type_* return_type;
     int defined;
-    int param_size;
+    int param_num;
     struct Field_List_* first_param;
     int line_num;
-    struct Func_* next; // list int hash table
+    struct Func_* next; // list in hash_table[index]
     struct Operand *op;
     int stack_size;
     int top_offset;
 };
 
 struct Sem_Error_List_ {
-    int type;
+    int error_type;
     int line_num;
     char info[MAX_ERROR_INFO_LEN];
     struct Sem_Error_List_* next;
@@ -72,12 +72,15 @@ typedef struct Field_List_ Field_List;
 typedef struct Func_ Func;
 typedef struct Sem_Error_List_ Error_List;
 
-/* initialize hash table */
+/* hash table */
+static int hash_pjw(char*);
 void init_hash_table();
-void insert_read_write_func(char *);
+void insert_read_func();
+void insert_write_func();
+Func* insert_func_hash_table(unsigned, char*, Type*, Func*);
 
 /* start semantic_analysis */
-void semantic_analysis(ASTNode *root);
+void semantics_analysis(ASTNode *root);
 
 /* semantics of High-level Definitions */
 void sem_program(ASTNode*);
@@ -111,14 +114,16 @@ Type* sem_exp(ASTNode*);
 Type* sem_args(ASTNode*);
 
 /* helper functions */
+
 Field_List* insert_field_hash_table(unsigned, char*, Type*, ASTNode*, int, int);
 Field_List* query_field_hash_table(unsigned, char*, ASTNode*, int);
-Func* insert_func_hash_table(unsigned, char*, Type*, Func*);
-Func* query_func_hash_table(unsigned, char*);
+
 Func* insert_func_dec_hash_table(unsigned, char*, Type*, Func*);
+Func* query_func_hash_table(unsigned, char*);
+
 int check_equal_type(Type*, Type*);
-int check_struct_equal_type_naive(Type*, Type*);
-int check_struct_equal_type(Type*, Type*);
+// int check_struct_equal_type_naive(Type*, Type*);
+// int check_struct_equal_type(Type*, Type*);
 int check_duplicate_field(Type*);
 int check_equal_params(Field_List*, Type*);
 int check_twofunc_equal_params(Field_List*, Field_List*);

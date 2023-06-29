@@ -1,18 +1,37 @@
 CC = gcc
-OUT = miniCC
-SCANNER = scanner.l
-PARSER = parse.y
+FLEX = flex
+BISON = bison
+CFLAGS = -std=c99
 
-build: $(OUT)
+# 源文件列表
+CFILES = main.c semantics.c AST.c
+LFILE = scanner.l
+YFILE = parser.y
+HFILES = AST.h semantics.h
+LFC = lex.yy.c
+YFC = parser.tab.c
+OBJS = $(CFILES:.c=.o)
+
+# 默认目标
+all: miniCC
+
+# 编译目标
+miniCC: $(OBJS) $(YFC) $(LFC)
+	$(CC) $(CFLAGS) -o miniCC $(OBJS) $(YFC) $(LFC) -lfl
+
+# 词法分析器生成规则
+$(LFC): $(LFILE)
+	$(FLEX) -o $(LFC) $(LFILE)
+
+# 语法分析器生成规则
+$(YFC): $(YFILE)
+	$(BISON) -o $(YFC) -d $(YFILE)
+
+# 目标文件生成规则
+%.o: %.c $(HFILES)
+	$(CC) $(CFLAGS) -c -o $@ $<
 
 clean:
-	rm -f *.o lex.yy.c parse.tab.c parse.tab.h parse.output $(OUT)
+	rm -f miniCC $(LFC) $(YFC) $(OBJS)
 
-$(OUT): lex.yy.c main.c ir.c mips.c symbol_table.c syntax_tree.c parse.tab.c compiler.h
-	$(CC) -o $(OUT) lex.yy.c main.c ir.c mips.c symbol_table.c syntax_tree.c parse.tab.c
- 
-lex.yy.c: $(SCANNER) parse.tab.c 
-	flex $<
-
-parse.tab.c: $(PARSER)
-	bison -d $<
+.PHONY: all clean

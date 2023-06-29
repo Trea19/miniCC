@@ -1,8 +1,7 @@
 %{
-#include<unistd.h>
 #include<stdio.h>   
-#include "compiler.h"
-#include "lex.yy.c"
+#include "AST.h"
+#define YYERROR_VERBOSE
 
 extern int error_flag;
 extern int empty_flag;
@@ -10,7 +9,7 @@ extern ASTNode* root;
 %}
 
 %union{
-    ASTNode *node;
+    ASTNode* node;
 }
 
 /* tokens */
@@ -24,9 +23,9 @@ extern ASTNode* root;
 
 /* non-terminals */
 %type <node> Program ExtDefList ExtDef ExtDecList
-%type <node> Specifire StructSpecifire OptTag Tag
+%type <node> Specifier StructSpecifier OptTag Tag
 %type <node> VarDec FunDec VarList ParamDec
-%type <node> Compst StmtList Stmt
+%type <node> CompSt StmtList Stmt
 %type <node> DefList Def DecList Dec
 %type <node> Exp Args
 
@@ -356,6 +355,8 @@ Args :
         add_child_sibling($$, 1, $1); 
     };
 %%
+
+#include "lex.yy.c"
 
 int yyerror(const char* msg) {
     error_flag = 1;

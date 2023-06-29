@@ -3,6 +3,8 @@
 extern int yylineno;
 extern int empty_flag;
 
+// create AST node
+// token_type: refer to scanner.l or the enum in parser.tab.h (-1 if it is a non-terminal)
 ASTNode* create_node(char *name, char *value, int token_type, int lineno){
     ASTNode *node = (ASTNode*)malloc(sizeof(ASTNode));
     node->name = (char*)malloc(sizeof(name));
@@ -13,19 +15,19 @@ ASTNode* create_node(char *name, char *value, int token_type, int lineno){
 
     node->row_index = lineno;
     node->token_type = token_type;
-    node->term_type = token_type == -1 ? 1 : 0; /* 0 -> token; 1 -> non-terminal*/
+    node->term_type = token_type == -1 ? 1 : 0; // 0 -> token; 1 -> non-terminal
    
     return node;
 }
 
+// add child node to parent node, count is the number of child nodes, ... is the child nodes
 void add_child_sibling(ASTNode *parent, const int count,  ...){
-    va_list list;
-    va_start(list, count); //initialize
-    ASTNode *last_node;
+    va_list list; // variable argument list
+    va_start(list, count); // initialize list
+    ASTNode *last_node; 
 
-    int i;
-    for (i = 0; i < count; i++){
-        ASTNode *node = va_arg(list, ASTNode*);
+    for (int i = 0; i < count; i++){
+        ASTNode *node = va_arg(list, ASTNode*); // get the next argument of type ASTNode*
         node->parent = parent;
         if (i == 0){
             parent->first_child = node;
@@ -36,11 +38,13 @@ void add_child_sibling(ASTNode *parent, const int count,  ...){
             last_node = node;
         }
     }
-    va_end(list);
+    va_end(list); // end list
 }
 
+// print AST    
 void print_AST(ASTNode *node, int indent){
-    if (!node) return;
+    if (!node)
+        return;
 
     if (empty_flag == 1){
         printf("Empty File!\n");
@@ -77,6 +81,7 @@ void print_AST(ASTNode *node, int indent){
     }
 }
 
+// convert string to int, according to the type(0: decimal; 1: binary; 2: octal; 3: hexadecimal)
 int str_to_int(char *str, int type){
     if (type == 0)
         return atoi(str);
