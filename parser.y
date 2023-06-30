@@ -1,6 +1,7 @@
 %{
-#include<stdio.h>   
+#include <stdio.h>   
 #include "AST.h"
+#include "lex.yy.c"
 #define YYERROR_VERBOSE
 
 extern int error_flag;
@@ -355,8 +356,6 @@ Args :
         add_child_sibling($$, 1, $1); 
     };
 %%
-
-#include "lex.yy.c"
 
 int yyerror(const char* msg) {
     error_flag = 1;

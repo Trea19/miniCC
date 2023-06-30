@@ -8,7 +8,7 @@
   int empty_flag = 1;
 
   FILE *in;
-  ASTNode *root;
+  ASTNode* root;
 
   int yycolumn = 1;
   extern YYLTYPE yylloc;
@@ -127,5 +127,4 @@ AERROR .
 {AERROR}        {printf("Error type A at Line %d: Mysterious characters \"%s\".\n", yylineno, yytext); error_flag = 1; }
 
 %%
-
 

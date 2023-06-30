@@ -267,7 +267,7 @@ Type* sem_struct_specifier(ASTNode* node, int wrapped_layer, int in_structure) {
         return struct_type;
     } 
     // strcmp(node->first_child->sibling->name, "Tag") == 0
-    ASTNode *tag_node = node->first_child->sibling->first_child;
+    ASTNode* tag_node = node->first_child->sibling->first_child;
     Field_List* field = find_field_hash_table(hash_pjw(tag_node->value), tag_node->value, tag_node, LOOK_FOR_STRUCT);
     if (field == NULL) {
         char error_info[MAX_ERROR_INFO_LEN];

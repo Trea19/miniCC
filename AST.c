@@ -6,7 +6,7 @@ extern int empty_flag;
 // create AST node
 // token_type: refer to scanner.l or the enum in parser.tab.h (-1 if it is a non-terminal)
 ASTNode* create_node(char *name, char *value, int token_type, int lineno){
-    ASTNode *node = (ASTNode*)malloc(sizeof(ASTNode));
+    ASTNode* node = (ASTNode*)malloc(sizeof(ASTNode));
     node->name = (char*)malloc(sizeof(name));
     strcpy(node->name, name);
 
@@ -21,13 +21,13 @@ ASTNode* create_node(char *name, char *value, int token_type, int lineno){
 }
 
 // add child node to parent node, count is the number of child nodes, ... is the child nodes
-void add_child_sibling(ASTNode *parent, const int count,  ...){
+void add_child_sibling(ASTNode* parent, const int count,  ...){
     va_list list; // variable argument list
     va_start(list, count); // initialize list
-    ASTNode *last_node; 
+    ASTNode* last_node; 
 
     for (int i = 0; i < count; i++){
-        ASTNode *node = va_arg(list, ASTNode*); // get the next argument of type ASTNode*
+        ASTNode* node = va_arg(list, ASTNode*); // get the next argument of type ASTNode*
         node->parent = parent;
         if (i == 0){
             parent->first_child = node;
@@ -42,7 +42,7 @@ void add_child_sibling(ASTNode *parent, const int count,  ...){
 }
 
 // print AST    
-void print_AST(ASTNode *node, int indent){
+void print_AST(ASTNode* node, int indent){
     if (!node)
         return;
 
@@ -74,7 +74,7 @@ void print_AST(ASTNode *node, int indent){
             printf("%s\n", node->name);
     }
 
-    ASTNode *tmp = node->first_child;
+    ASTNode* tmp = node->first_child;
     while (tmp){
         print_AST(tmp, indent + 2);
         tmp = tmp -> sibling;
