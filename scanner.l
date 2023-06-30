@@ -1,18 +1,18 @@
 %{
-#include <stdlib.h>
-#include <stdio.h>
-#include "AST.h"
-#include "parser.tab.h"
+  #include <stdlib.h>
+  #include <stdio.h>
+  #include "AST.h"
+  #include "parser.tab.h"
 
-int error_flag = 0;
-int empty_flag = 1;
+  int error_flag = 0;
+  int empty_flag = 1;
 
-ASTNode *root;
-FILE* in;
+  FILE *in;
+  ASTNode *root;
 
-int yycolumn = 1;
-extern YYLTYPE yylloc;
-#define YY_USER_ACTION \
+  int yycolumn = 1;
+  extern YYLTYPE yylloc;
+  #define YY_USER_ACTION \
     yylloc.first_line = yylloc.last_line = yylineno; \
     yylloc.first_column = yycolumn; \
     yylloc.last_column = yycolumn + yyleng - 1; \
@@ -127,4 +127,5 @@ AERROR .
 {AERROR}        {printf("Error type A at Line %d: Mysterious characters \"%s\".\n", yylineno, yytext); error_flag = 1; }
 
 %%
+
 

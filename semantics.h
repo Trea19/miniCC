@@ -23,7 +23,7 @@ struct Type_ {
         } array;
         struct {
             struct Field_List_* first_field;
-            struct Type_* first_flat;
+            //struct Type_* first_flat;
             int size;
         } structure;
     } u;
@@ -78,8 +78,10 @@ void init_hash_table();
 void insert_read_func();
 void insert_write_func();
 Func* insert_func_hash_table(int, char*, Type*, Func*);
+Func* find_func_hash_table(int, char*);
 Field_List* insert_field_hash_table(int, char*, Type*, ASTNode*, int, int);
 Field_List* find_field_hash_table(int, char*, ASTNode*, int);
+
 
 /* semantics_analysis */
 void semantics_analysis(ASTNode*);
@@ -116,25 +118,27 @@ Type* sem_exp(ASTNode*);
 Type* sem_args(ASTNode*);
 
 /* helper functions */
-Func* insert_func_dec_hash_table(unsigned, char*, Type*, Func*);
-Func* query_func_hash_table(unsigned, char*);
-
+//Func* insert_func_dec_hash_table(unsigned, char*, Type*, Func*);
 int check_equal_type(Type*, Type*);
 int check_duplicate_field(Type*);
+int check_equal_params(Field_List*, Type*);
+void check_undefined_func();
+void pop_local_var(int);
+
 // int check_struct_equal_type_naive(Type*, Type*);
 // int check_struct_equal_type(Type*, Type*);
 
-int check_equal_params(Field_List*, Type*);
-int check_twofunc_equal_params(Field_List*, Field_List*);
-void check_undefined_func();
-void pop_local_var(int);
-Type* struct_type_to_list(Field_List*);
+
+//int check_twofunc_equal_params(Field_List*, Field_List*);
+
+
+//Type* struct_type_to_list(Field_List*);
 
 /* error report list */
-void add_error_list(int, char *, int);
+void add_error_list(int, int, char*);
 void print_error_list();
 
 /* for debug */
-void print_field_list(int);
+//void print_field_list(int);
 
 #endif

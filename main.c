@@ -2,7 +2,7 @@
 #include "semantics.h"
 
 extern FILE* in;
-extern ASTNode *root;
+extern ASTNode* root;
 extern int error_flag;
 
 int main(int argc, char **argv){
@@ -16,9 +16,10 @@ int main(int argc, char **argv){
 
     root = malloc(sizeof(ASTNode));
     yyparse();
-    if (!error_flag) {
+    if (!error_flag) { // no lexical or syntax error
+        print_AST(root, 0);
         semantics_analysis(root);
-        if (error_flag) { // semantic error
+        if (error_flag) { // semantic error occurs
             print_error_list();
         }
         return 0;

@@ -3,7 +3,7 @@ FLEX = flex
 BISON = bison
 CFLAGS = -std=c99
 
-# 源文件列表
+# source files
 CFILES = main.c semantics.c AST.c
 LFILE = scanner.l
 YFILE = parser.y
@@ -11,27 +11,27 @@ HFILES = AST.h semantics.h
 LFC = lex.yy.c
 YFC = parser.tab.c
 OBJS = $(CFILES:.c=.o)
+LFO = $(LFC:.c=.o)
+YFO = $(YFC:.c=.o)
 
-# 默认目标
-all: miniCC
+# target
+miniCC: syntax $(filter-out $(LFO),$(OBJS))
+	$(CC) -o miniCC $(filter-out $(LFO),$(OBJS)) -ll -ly -ggdb
 
-# 编译目标
-miniCC: $(OBJS) $(YFC) $(LFC)
-	$(CC) $(CFLAGS) -o miniCC $(OBJS) $(YFC) $(LFC) -lfl
+syntax: lexical syntax-c
+	$(CC) -c $(YFC) -o $(YFO)
 
-# 词法分析器生成规则
-$(LFC): $(LFILE)
+lexical: $(LFILE)
 	$(FLEX) -o $(LFC) $(LFILE)
 
-# 语法分析器生成规则
-$(YFC): $(YFILE)
-	$(BISON) -o $(YFC) -d $(YFILE)
+syntax-c: $(YFILE)
+	$(BISON) -o $(YFC) -d -v $(YFILE)
 
-# 目标文件生成规则
-%.o: %.c $(HFILES)
-	$(CC) $(CFLAGS) -c -o $@ $<
+-include $(patsubst %.o, %.d, $(OBJS))
+
 
 clean:
-	rm -f miniCC $(LFC) $(YFC) $(OBJS)
+	rm -f miniCC $(LFC) $(YFC) $(YFC:.c=.h) *.o *.output 
 
 .PHONY: all clean
+
