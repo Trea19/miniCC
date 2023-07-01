@@ -1,22 +1,20 @@
-# 编译器设定和编译选项
 CC = gcc
 FLEX = flex
 BISON = bison
 CFLAGS = -std=c99
 
-# 编译目标：src目录下的所有.c文件
 CFILES = $(shell find ./ -name "*.c")
 OBJS = $(CFILES:.c=.o)
 TESTS = $(shell find ./../Test -name "sem*.cmm");
 LFILE = $(shell find ./ -name "*.l")
 YFILE = $(shell find ./ -name "*.y")
 LFC = $(shell find ./ -name "*.l" | sed s/[^/]*\\.l/lex.yy.c/)
-YFC = $(shell find ./ -name "*.y" | sed s/[^/]*\\.y/parser.tab.c/)
+YFC = $(shell find ./ -name "*.y" | sed s/[^/]*\\.y/syntax.tab.c/)
 LFO = $(LFC:.c=.o)
 YFO = $(YFC:.c=.o)
 
 miniCC: syntax $(filter-out $(LFO),$(OBJS))
-	$(CC) $(filter-out $(LFO),$(OBJS)) -ll -ly -ggdb -lfl -o ../miniCC
+	$(CC) -o ../miniCC $(filter-out $(LFO),$(OBJS)) -ll -ly -ggdb
 
 syntax: lexical syntax-c
 	$(CC) -c $(YFC) -o $(YFO) -ggdb
@@ -29,14 +27,11 @@ syntax-c: $(YFILE)
 
 -include $(patsubst %.o, %.d, $(OBJS))
 
-# 定义的一些伪目标
-.PHONY: clean test
-test:
-	
+
+.PHONY: clean 
+
 clean:
-	rm -f lex.yy.c parser.tab.c parser.tab.h parser.output
+	rm -f lex.yy.c syntax.tab.c syntax.tab.h syntax.output
 	rm -f $(OBJS) $(OBJS:.o=.d)
 	rm -f $(LFC) $(YFC) $(YFC:.c=.h)
-	rm -f *.s
-	rm -f *.ir
-	rm -f *~
+

@@ -1,5 +1,6 @@
 #include "semantics.h"
 #include "AST.h"
+#include "assert.h"
 
 #define LOOK_FOR_STRUCT 1
 
@@ -195,6 +196,7 @@ void sem_ext_def_list(ASTNode* root) {
 }
 
 void sem_ext_def(ASTNode* node){
+    assert(node);
     // get type from semantic specifier
     Type* type = sem_specifier(node->first_child, 0, 0);
     if (strcmp(node->first_child->sibling->name, "ExtDecList") == 0){
@@ -227,6 +229,7 @@ void sem_ext_def(ASTNode* node){
 }
 
 void sem_ext_dec_list(ASTNode* node, Type* type){
+    assert(node && node->first_child);
     sem_var_dec(node->first_child, type, 0, 0);
     if (node->first_child->sibling != NULL) {
         sem_ext_dec_list(node->first_child->sibling->sibling, type);
@@ -234,6 +237,7 @@ void sem_ext_dec_list(ASTNode* node, Type* type){
 }
 
 Type* sem_specifier(ASTNode* node, int wrapped_layer, int in_structure) {
+    assert(node);
     // TYPE
     if (strcmp(node->first_child->name, "TYPE") == 0){
         Type *type = (Type*)malloc(sizeof(Type));
@@ -250,6 +254,7 @@ Type* sem_specifier(ASTNode* node, int wrapped_layer, int in_structure) {
 }
 
 Type* sem_struct_specifier(ASTNode* node, int wrapped_layer, int in_structure) {
+    assert(node);
     if (strcmp(node->first_child->sibling->name, "OptTag") == 0){
         Type* struct_type = (Type*)malloc(sizeof(Type));
         struct_type->kind = STRUCTURE;
@@ -277,6 +282,7 @@ Type* sem_struct_specifier(ASTNode* node, int wrapped_layer, int in_structure) {
     } else {
         return field->type;
     }
+    return NULL;
 }
 
 Field_List* sem_var_dec(ASTNode* node, Type* type, int in_struct, int wrapped_layer){
@@ -457,9 +463,9 @@ Field_List* sem_dec(ASTNode* node, Type* type, int in_struct, int wrapped_layer)
             return var_dec_field;
         } else {
             char info[MAX_ERROR_INFO_LEN];
-                sprintf(info, "Type mismatched for assignment.\n");
-                add_error_list(5, node->first_child->sibling->line_num, info);
-                return NULL;
+            sprintf(info, "Type mismatched for assignment.\n");
+            add_error_list(5, node->first_child->sibling->line_num, info);
+            return NULL;
         }
     }
 }
