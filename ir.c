@@ -293,18 +293,18 @@ InterCode *ir_stmt(AST_Node* node, int wrapped_layer) {
         return ir_link(code1, code2);
     }
     if (strcmp(node->first_child->name, "IF") == 0) {
-        if (node->first_child->sibling->sibling->sibling->sibling->sibling) { // IF LP Exp RP Stmt ELSE Stmt
+        if (node->first_child->sibling->sibling->sibling->sibling->sibling) { // IF LP Exp RP Stmt ELSE [label1] Stmt [label2]
             Operand* label1 = make_label(); 
             Operand* label2 = make_label();
-            InterCode* code1 = ir_cond(node->first_child->sibling->sibling, fall_label, label1); 
+            InterCode* code1 = ir_cond(node->first_child->sibling->sibling, fall_label, label1);
             InterCode* code2 = ir_stmt(node->first_child->sibling->sibling->sibling->sibling, wrapped_layer);
             InterCode* code3 = ir_stmt(node->first_child->sibling->sibling->sibling->sibling->sibling->sibling, wrapped_layer);
             return
-                bind(
-                    bind(
-                        bind(
-                            bind(
-                                bind(
+                ir_link(
+                    ir_link(
+                        ir_link(
+                            ir_link(
+                                ir_link(
                                     code1,
                                     code2
                                 ),
@@ -317,13 +317,13 @@ InterCode *ir_stmt(AST_Node* node, int wrapped_layer) {
                     make_ir(IR_LABEL, label2, NULL, NULL, NULL)
                 );
         }
-        else { // IF LP Exp RP Stmt
+        else { // IF LP Exp RP Stmt [label1]
             Operand *label1 = make_label();
             InterCode *code1 = ir_cond(node->first_child->sibling->sibling, fall_label, label1);
             InterCode *code2 = ir_stmt(node->first_child->sibling->sibling->sibling->sibling, wrapped_layer);
             return 
-                bind(
-                    bind(
+                ir_link(
+                    ir_link(
                         code1,
                         code2
                     ), 
@@ -331,16 +331,17 @@ InterCode *ir_stmt(AST_Node* node, int wrapped_layer) {
                 );
         }
     }
+    // WHILE LP [label1] Exp RP Stmt [label2]
     if (strcmp(node->first_child->name, "WHILE") == 0) {
         Operand *label1 = make_label();
-        Operand *label3 = make_label();
-        InterCode *code1 = ir_cond(node->first_child->sibling->sibling, fall_label, label3);
+        Operand *label2 = make_label();
+        InterCode *code1 = ir_cond(node->first_child->sibling->sibling, fall_label, label2);
         InterCode *code2 = ir_stmt(node->first_child->sibling->sibling->sibling->sibling, wrapped_layer);
         return
-            bind(
-                bind(
-                    bind(
-                        bind(
+            ir_link(
+                ir_link(
+                    ir_link(
+                        ir_link(
                             make_ir(IR_LABEL, label1, NULL, NULL, NULL),
                             code1
                         ),
@@ -348,10 +349,9 @@ InterCode *ir_stmt(AST_Node* node, int wrapped_layer) {
                     ),
                     make_ir(IR_GOTO, label1, NULL, NULL, NULL)
                 ),
-                make_ir(IR_LABEL, label3, NULL, NULL, NULL)
+                make_ir(IR_LABEL, label2, NULL, NULL, NULL)
             );
     }
-    assert(0);
     return NULL;
 }
 
@@ -384,18 +384,514 @@ InterCode* ir_dec_list(ASTNode* node, Type* type, int wrapped_layer) {
     return code1;
 }
 
-// todo
 InterCode* ir_dec(ASTNode* node, Type* type, int wrapped_layer) {
+    if (node == NULL || type == NULL)
+        return NULL;
+
+    if (node->first_child->sibling){ // VarDec ASSIGNOP Exp
+        Field_List *variable = ir_var_dec(node->first_child, type, 0, wrapped_layer);
+        if (all_constant(node->first_child->sibling->sibling)) { // Exp is constant
+            return make_ir(IR_ASSIGN, variable->op, make_constant(get_constant(node->first_child->sibling->sibling)), NULL, NULL);
+        }
+        if (is_id(node->first_child->sibling->sibling)) { // Exp is id
+            return make_ir(IR_ASSIGN, variable->op, get_id(node->first_child->sibling->sibling), NULL, NULL);
+        }
+        // Exp is not constant or id
+        Operand* t1 = make_temp();
+        InterCode* code1 = ir_exp(node->first_child->sibling->sibling, t1); // t1 = Exp
+        InterCode* code2 = make_ir(IR_ASSIGN, variable->op, t1, NULL, NULL); // variable = t1
+        return ir_link(code1, code2);
+    }
+    else{ // VarDec
+        Field_List *variable = ir_var_dec(node->first_child, type, 0, wrapped_layer);
+        if (variable->type->kind == STRUCTURE) { // struct
+            variable->op = make_addr(variable->op, 0); // ref_hidden = 0
+            int size = variable->type->u.structure.size;
+            Operand *op_size = make_constant(size);
+            InterCode *code = make_ir(IR_DEC, variable->op, op_size, NULL, NULL); // DEC struct size
+            return code;
+        }
+        else if (variable->type->kind == ARRAY) { // array
+            variable->op = make_addr(variable->op, 0);
+            int size = size_of_array_type(variable->type);
+            Operand* op_size = make_constant(size);
+            InterCode *code = make_ir(IR_DEC, variable->op, op_size, NULL, NULL); // DEC array size
+            return code;
+        }
+        return NULL;
+    }
+}
+
+InterCode* ir_exp(ASTNode* node, Operand* place) {
     if (node == NULL)
         return NULL;
-    if (type == NULL)
-        return NULL;
-    
-    if (node->first_child->sibling){ // VarDec
-        
+    if (all_constant(node)) { // Exp is constant
+        if (place == NULL)
+            return NULL;
+        Operand* constant = make_constant(get_constant(node));
+        return make_ir(IR_ASSIGN, place, constant, NULL, NULL);
     }
-    else{ // VarDec ASSIGNOP Exp
-       
+
+    if (strcmp(node->first_child->name, "Exp") == 0 || strcmp(node->first_child->name, "NOT") == 0) {
+        // Exp ...
+        if (strcmp(node->first_child->name, "Exp") == 0) { 
+            if (strcmp(node->first_child->sibling->name, "ASSIGNOP") == 0){ // Exp ASSIGNOP Exp
+                Field_List* variable = NULL;
+                // ID ASSIGNOP Exp
+                if (strcmp(node->first_child->first_child->name, "ID") == 0 && node->first_child->first_child->sibling == NULL) {
+                    // variable = left-value ID
+                    variable = ir_find_field_hash_table(hash_pjw(node->first_child->first_child->value), node->first_child->first_child->value, node->first_child->first_child, 0);
+                    assert(variable);
+                    // Exp2 is constant
+                    if (all_constant(node->first_child->sibling->sibling)) { 
+                        if (place == NULL) {
+                            return make_ir(IR_ASSIGN, variable->op, make_constant(get_constant(node->first_child->sibling->sibling)), NULL, NULL);
+                        }
+                        else {
+                            return ir_link(make_ir(IR_ASSIGN, variable->op, make_constant(get_constant(node->first_child->sibling->sibling)), NULL, NULL), 
+                                           make_ir(IR_ASSIGN, place, variable->op, NULL, NULL));
+                        }
+                    }
+
+                    // Exp2 is ID
+                    if (is_id(node->first_child->sibling->sibling)) { 
+                        if (place == NULL) {
+                            return make_ir(IR_ASSIGN, variable->op, get_id(node->first_child->sibling->sibling), NULL, NULL);
+                        }
+                        else {
+                            return ir_link(make_ir(IR_ASSIGN, variable->op, get_id(node->first_child->sibling->sibling), NULL, NULL), 
+                                           make_ir(IR_ASSIGN, place, variable->op, NULL, NULL));
+                        }
+                    }
+
+                    // Exp2 is not constant or ID
+                    Operand* t1 = make_temp();
+                    InterCode* code1 = ir_exp(node->first_child->sibling->sibling, t1); // t1 = Exp2
+                    InterCode* code2 = NULL;
+                    if (place == NULL) {
+                        code2 = make_ir(IR_ASSIGN, variable->op, t1, NULL, NULL); // variable = t1
+                    }
+                    else {
+                        code2 = ir_link(make_ir(IR_ASSIGN, variable->op, t1, NULL, NULL), 
+                                        make_ir(IR_ASSIGN, place, variable->op, NULL, NULL));
+                    }
+                    return ir_link(code1, code2);
+                }
+                // Exp (Arrays or Structures) ASSIGNOP Exp
+                else {
+                    Operand *t1 = make_temp();
+                    Operand *t2 = make_temp();
+                    InterCode* code1 = ir_exp(node->first_child, t1); // t1 = Exp1
+                    InterCode* code2 = ir_exp(node->first_child->sibling->sibling, t2); // t2 = Exp2
+                    InterCode* code3 = make_ir(IR_ASSIGN, t1, t2, NULL, NULL); // t1 = t2
+                    if (place == NULL) {
+                        return ir_link(ir_link(code1, code2), code3);  
+                    }
+                    else {
+                        InterCode* code4 = make_ir(IR_ASSIGN, place, t1, NULL, NULL); // place = t1
+                        return ir_link(ir_link(ir_link(code1, code2), code3), code4);
+                    }
+                }
+            }
+            // Exp PLUS Exp || Exp MINUS Exp || Exp STAR Exp || Exp DIV Exp
+            else if (strcmp(node->first_child->sibling->name, "PLUS") == 0
+                || strcmp(node->first_child->sibling->name, "MINUS") == 0
+                || strcmp(node->first_child->sibling->name, "STAR") == 0
+                || strcmp(node->first_child->sibling->name, "DIV") == 0){
+                int kind = 0;
+                if (strcmp(node->first_child->sibling->name, "PLUS") == 0) {
+                    kind = IR_ADD;
+                }
+                else if (strcmp(node->first_child->sibling->name, "MINUS") == 0) {
+                    kind = IR_SUB;
+                }
+                else if (strcmp(node->first_child->sibling->name, "STAR") == 0) {
+                    kind = IR_MUL;
+                }
+                else {
+                    kind = IR_DIV;
+                }
+                // Exp1 is constant and Exp2 is constant
+                if (all_constant(node->first_child) && all_constant(node->first_child->sibling->sibling)) {
+                    if (place == NULL)
+                        return NULL;
+                    int result = get_constant(node->first_child);
+                    switch (kind) {
+                        case IR_ADD: result += get_constant(node->first_child->sibling->sibling); break;
+                        case IR_SUB: result -= get_constant(node->first_child->sibling->sibling); break;
+                        case IR_MUL: result *= get_constant(node->first_child->sibling->sibling); break;
+                        case IR_DIV: result /= get_constant(node->first_child->sibling->sibling);  break;
+                        default: assert(0);
+                    }
+                    // place = make_constant(result);
+                    return make_ir(IR_ASSIGN, place, make_constant(result), NULL, NULL);
+                }
+                // not both constant
+                Operand *t1 = NULL;
+                Operand *t2 = NULL;
+                InterCode *code1 = NULL;
+                InterCode *code2 = NULL;
+                // case 1: Exp1 is constant
+                if (all_constant(node->first_child)) {
+                    Operand *constant = make_constant(get_constant(node->first_child));
+                    if (is_id(node->first_child->sibling->sibling)) // Exp2 is ID
+                        t1 = get_id(node->first_child->sibling->sibling); // t1 = Exp2
+                    else { // Exp2 is not constant or ID
+                        t1 = make_temp();
+                        code1 = ir_exp(node->first_child->sibling->sibling, t1); // t1 = Exp2
+                    }
+                    if (place != NULL)
+                        code2 = make_ir(kind, place, constant, t1, NULL);
+                    return ir_link(code1, code2);
+                }
+                // case 2: Exp2 is constant
+                else if (all_constant(node->first_child->sibling->sibling)){
+                    if (is_id(node->first_child)) { // Exp1 is ID
+                        t1 = get_id(node->first_child);
+                    }
+                    else { // Exp1 is not constant or ID
+                        t1 = make_temp();
+                        code1 = ir_exp(node->first_child, t1);
+                    }
+                    // Exp2 is constant
+                    Operand *constant = make_constant(get_constant(node->first_child->sibling->sibling));
+                    if (place != NULL)
+                        code2 = make_ir(kind, place, t1, constant, NULL);
+                    return ir_link(code1, code2);
+                }
+                // case3: both not constant
+                // Exp1
+                if (is_id(node->first_child)) {
+                    t1 = get_id(node->first_child);
+                } else {
+                    t1 = make_temp();
+                    code1 = ir_exp(node->first_child, t1);
+                }
+                // Exp2
+                if (is_id(node->first_child->sibling->sibling)) {
+                    t2 = get_id(node->first_child->sibling->sibling);
+                } else {
+                    t2 = make_temp();
+                    code2 = ir_exp(node->first_child->sibling->sibling, t2);
+                }
+                InterCode *code3 = NULL;
+                if (place != NULL)
+                    code3 = make_ir(kind, place, t1, t2, NULL);
+                return ir_link(ir_link(code1, code2), code3);
+            }
+            // Exp LB Exp RB, array
+            else if (strcmp(node->first_child->sibling->name, "LB") == 0 && strcmp(node->first_child->sibling->sibling->name, "Exp") == 0){
+                Operand *t1 = NULL;
+                InterCode *code1 = NULL;
+                // Exp1 is ID
+                if (strcmp(node->first_child->first_child->name, "ID") == 0 && node->first_child->first_child->sibling == NULL) {
+                    Field_List *variable = ir_find_field_hash_table(hash_pjw(node->first_child->first_child->value), node->first_child->first_child->value, node->first_child->first_child, 0);
+                    assert(variable);
+                    t1 = variable->op; // t1 = &variable
+                }
+                else { // Exp1 is not ID
+                    t1 = make_temp();
+                    code1 = ir_exp(node->first_child, t1);
+                }
+                // Exp2 is constant
+                if (all_constant(node->first_child->sibling->sibling)) {
+                    Type *type = ir_exp_type(node);
+                    assert(type);
+                    Operand *array_offset = make_constant(get_constant(node->first_child->sibling->sibling) * size_of_array_type(type));
+                    InterCode *code2;
+                    if (type->kind != BASIC && place != NULL){
+                        code2 = make_ir(IR_ADD, place, t1, array_offset, NULL); // place = t1 + array_offset
+                    }
+                    // tobe_translated_Exp ASSiGNOP Exp, and tobe_translated_Exp is array
+                    else if (type->kind == BASIC && node->sibling && strcmp(node->sibling->name, "ASSIGNOP") == 0){ 
+                        Operand *t4 = make_temp();
+                        Operand *t5 = make_temp();
+                        if (place == NULL)
+                            code2 = ir_link(
+                                        ir_link(
+                                            make_ir(IR_ADD, t4, t1, array_offset, NULL),  // t4 = t1 + array_offset
+                                            ir_exp(node->sibling->sibling, t5) // t5 = Exp2
+                                        ), 
+                                        make_ir(IR_ASSIGN_TO_DEREF, t4, t5, NULL, NULL) // *t4 = t5
+                                    );
+                        else
+                            code2 = ir_link(
+                                        ir_link(
+                                            ir_link(
+                                                make_ir(IR_ADD, t4, t1, array_offset, NULL), // t4 = t1 + array_offset
+                                                ir_exp(node->sibling->sibling, t5) // t5 = Exp2
+                                            ), 
+                                            make_ir(IR_ASSIGN_TO_DEREF, t4, t5, NULL, NULL) // *t4 = t5
+                                        ), 
+                                        make_ir(IR_DEREF_ASSIGN, place, t4, NULL, NULL) // place = *t4
+                                    );
+                    }
+                    else if (place != NULL){
+                        Operand *t4 = make_temp();
+                        code2 = ir_link(make_ir(IR_ADD, t4, t1, array_offset, NULL),  // t4 = t1 + array_offset
+                                        make_ir(IR_DEREF_ASSIGN, place, t4, NULL, NULL)); // place = *t4
+                    }
+                    return ir_link(code1, code2);
+                }
+                // Exp2 is not constant
+                Operand* t2 = NULL; // t2 = &Exp2
+                InterCode* code2 = NULL;
+                if (is_id(node->first_child->sibling->sibling)) { // Exp2 is ID
+                    t2 = get_id(node->first_child->sibling->sibling);
+                }
+                else {
+                    t2 = make_temp();
+                    code2 = ir_exp(node->first_child->sibling->sibling, t2);
+                }
+                Operand* t3 = make_temp(); // t3 = t2 * size_of_array
+                Type *type = ir_exp_type(node);
+                assert(type);
+                InterCode* code3 = make_ir(IR_MUL, t3, t2, make_constant(size_of_array_type(type)), NULL); // t3 = t2 * size_of_array
+                
+                InterCode* code4 = NULL; // get the address of array element
+                if (type->kind != BASIC && place != NULL){
+                    code4 = make_ir(IR_ADD, place, t1, t3, NULL); // place = t1 + t3
+                }
+                // tobe_translated_Exp ASSiGNOP Exp, and tobe_translated_Exp is array
+                else if (node->sibling && strcmp(node->sibling->name, "ASSIGNOP") == 0){
+                    Operand *t4 = make_temp();
+                    Operand *t5 = make_temp();
+                    if (place == NULL)
+                        code4 = ir_link(
+                                    ir_link(
+                                        make_ir(IR_ADD, t4, t1, t3, NULL),  // t4 = t1 + t3, address of array element
+                                        ir_exp(node->sibling->sibling, t5)  // t5 = Exp2
+                                    ), 
+                                    make_ir(IR_ASSIGN_TO_DEREF, t4, t5, NULL, NULL) // *t4 = t5
+                                );
+                    else
+                        code4 = ir_link(
+                                    ir_link(
+                                        ir_link(
+                                            make_ir(IR_ADD, t4, t1, t3, NULL), 
+                                            ir_exp(node->sibling->sibling, t5)
+                                        ), 
+                                        make_ir(IR_ASSIGN_TO_DEREF, t4, t5, NULL, NULL)
+                                    ), 
+                                    make_ir(IR_DEREF_ASSIGN, place, t4, NULL, NULL) // place = *t4
+                                );
+                }
+                else if (place != NULL){
+                    Operand *t4 = make_temp();
+                    code4 = ir_link(make_ir(IR_ADD, t4, t1, t3, NULL),  // t4 = t1 + t3, address of array element
+                                    make_ir(IR_DEREF_ASSIGN, place, t4, NULL, NULL)); // place = *t4
+                }
+                return
+                    ir_link(
+                        ir_link(
+                            ir_link(
+                                code1,
+                                code2
+                            ),
+                            code3
+                        ),
+                        code4
+                    );
+            }
+            // Exp is structure
+            // Exp -> Exp DOT ID
+            else if (strcmp(node->first_child->sibling->name, "DOT") == 0){
+                Type *structure_type = ir_exp_type(node->first_child);
+                Type *type = ir_exp_type(node);
+                assert(structure_type && structure_type->kind == STRUCTURE);
+                assert(type);
+                Operand *t1 = make_temp();
+                InterCode *code1 = ir_exp(node->first_child, t1); // t1 = &Exp
+                Field_List *cur_field = structure_type->u.structure.first_field;
+                while (cur_field != NULL) {
+                    if (strcmp(cur_field->name, node->first_child->sibling->sibling->value) == 0) {
+                        break;
+                    }
+                    cur_field = cur_field->next_struct_field;
+                }
+                assert(cur_field);
+                Operand *offset = make_constant(cur_field->offset);
+                InterCode *code2 = NULL;
+                if (type->kind != BASIC && place != NULL) {
+                    code2 = make_ir(IR_ADD, place, t1, offset, NULL); // place = t1 + offset
+                }
+                else if (node->sibling && strcmp(node->sibling->name, "ASSIGNOP") == 0) {
+                    Operand *t2 = make_temp();
+                    Operand *t3 = make_temp();
+                    if (place == NULL) {
+                        code2 = ir_link(
+                                    ir_link(
+                                        make_ir(IR_ADD, t2, t1, offset, NULL), 
+                                        ir_exp(node->sibling->sibling, t3)
+                                    ), 
+                                    make_ir(IR_ASSIGN_TO_DEREF, t2, t3, NULL, NULL)
+                                );
+                    }
+                    else {
+                        code2 = ir_link(
+                                    ir_link(
+                                        ir_link(
+                                            make_ir(IR_ADD, t2, t1, offset, NULL), 
+                                            ir_exp(node->sibling->sibling, t3)
+                                        ), 
+                                        make_ir(IR_ASSIGN_TO_DEREF, t2, t3, NULL, NULL)
+                                    ), 
+                                    make_ir(IR_DEREF_ASSIGN, place, t2, NULL, NULL)
+                                );
+                    }
+                }
+                else if (place != NULL){
+                    Operand *t2 = make_temp();
+                    code2 = ir_link(make_ir(IR_ADD, t2, t1, offset, NULL), 
+                                    make_ir(IR_DEREF_ASSIGN, place, t2, NULL, NULL));
+                }
+                return ir_link(code1, code2);
+            }
+        }
+        // Exp AND Exp || Exp OR Exp || NOT Exp || Exp RELOP Exp
+        if ((strcmp(node->first_child->name, "Exp") == 0 && strcmp(node->first_child->sibling->name, "AND") == 0)
+            || (strcmp(node->first_child->name, "Exp") == 0 && strcmp(node->first_child->sibling->name, "OR") == 0)
+            || (strcmp(node->first_child->name, "Exp") == 0 && strcmp(node->first_child->sibling->name, "RELOP") == 0)
+            || (strcmp(node->first_child->name, "NOT") == 0)){
+            if (place == NULL)
+                return NULL;
+            Operand *label1 = make_label();
+            Operand *label2 = make_label();
+            InterCode *code0 = make_ir(IR_ASSIGN, place, make_constant(0), NULL, NULL); // place = 0
+            InterCode *code1 = ir_cond(node, label1, label2); // if (Exp) goto label1 else goto label2
+            InterCode *code2 = ir_link(
+                                    make_ir(IR_LABEL, label1, NULL, NULL, NULL), // label1:
+                                    make_ir(IR_ASSIGN, place, make_constant(1), NULL, NULL) // place = 1
+                                );
+            return
+                ir_link(
+                    ir_link(
+                        ir_link(
+                            code0,
+                            code1
+                        ),
+                        code2
+                    ),
+                    make_ir(IR_LABEL, label2, NULL, NULL, NULL)
+                );
+        }
+        assert(0);
+        return NULL;
+    }
+    // Exp -> LP Exp RP
+    else if (strcmp(node->first_child->name, "LP") == 0){
+        return ir_exp(node->first_child->sibling, place);
+    }
+    // Exp -> MINUS Exp
+    else if (strcmp(node->first_child->name, "MINUS") == 0){
+        if (all_constant(node->first_child->sibling)) {
+            if (place != NULL) {
+                return make_ir(IR_ASSIGN, place, make_constant(-get_constant(node->first_child->sibling)), NULL, NULL);
+            }
+            return NULL;
+        }
+        Operand *t1 = make_temp();
+        InterCode *code1 = ir_exp(node->first_child->sibling, t1);
+        InterCode *code2 = NULL;
+        if (place != NULL)
+            code2 = make_ir(IR_SUB, place, make_constant(0), t1, NULL);
+        return ir_link(code1, code2);
+    }
+    // Exp -> ID || ID LP RP || ID LP Args RP
+    else if (strcmp(node->first_child->name, "ID") == 0){
+        // ID
+        if (node->first_child->sibling == NULL) {
+            Field_List *variable = ir_find_field_hash_table(hash_pjw(node->first_child->value), node->first_child->value, node->first_child, 0);
+            assert(variable);
+            if (place != NULL)
+                return make_ir(IR_ASSIGN, place, variable->op, NULL, NULL);
+            return NULL;
+        }
+        // ID LP Args RP
+        if (strcmp(node->first_child->sibling->sibling->name, "Args") == 0){
+            Func *function = ir_find_func_hash_table(hash_pjw(node->first_child->value), node->first_child->value);
+            arg_list_head[++ arg_list_head_index] = NULL;
+            InterCode *code1 = ir_args(node->first_child->sibling->sibling);
+            if (strcmp(function->name, "write") == 0) {
+                assert(arg_list_head[arg_list_head_index]);
+                return ir_link(code1, make_ir(IR_WRITE, arg_list_head[arg_list_head_index], NULL, NULL, NULL));
+            }
+            Operand *cur = arg_list_head[arg_list_head_index];
+            arg_list_head_index --;
+            InterCode *code2 = NULL; // args
+            while (cur != NULL) {
+                code2 = ir_link(code2, make_ir(IR_ARG, cur, NULL, NULL, NULL));
+                cur = cur->next_arg;
+            }
+            InterCode *code3 = NULL;
+            if (place != NULL) {
+                code3 = make_ir(IR_CALL, place, function->op, NULL, NULL); // place = call function
+            }
+            else {
+                Operand *tmp = make_temp();
+                code3 = make_ir(IR_CALL, tmp, function->op, NULL, NULL); // tmp = call function
+            }
+            return ir_link(ir_link(code1, code2), code3);
+        }
+        else { // ID LP RP
+            Func *function = ir_find_func_hash_table(hash_pjw(node->first_child->value), node->first_child->value);
+            if (strcmp(function->name, "read") == 0) {
+                if (place != NULL)
+                    return make_ir(IR_READ, place, NULL, NULL, NULL);
+                else {
+                    Operand *tmp = make_temp();
+                    return make_ir(IR_READ, tmp, NULL, NULL, NULL);
+                }
+            }
+            if (place != NULL)
+                return make_ir(IR_CALL, place, function->op, NULL, NULL);
+            else {
+                Operand *tmp = make_temp();
+                return make_ir(IR_CALL, tmp, function->op, NULL, NULL);
+            }
+        }
+    }
+    else if (strcmp(node->first_child->name, "INT") == 0){
+        if (place != NULL) {
+            Operand *value = make_constant(atoi(node->first_child->value));
+            return make_ir(IR_ASSIGN, place, value, NULL, NULL);
+        }
+        return NULL;
+    }
+    else if (strcmp(node->first_child->name, "FLOAT") == 0){
+        assert(0); // undefined
+        return NULL;
+    }
+    return NULL;
+}
+
+// Args -> Exp COMMA Args | Exp
+InterCode* ir_args(ASTNode *node) {
+    if (node == NULL) {
+        return NULL;
+    }
+    Operand *t1 = NULL;
+    InterCode *code1 = NULL;
+    if (all_constant(node->first_child)) {
+        t1 = make_constant(get_constant(node->first_child));
+    }
+    else if (is_id(node->first_child)) {
+        t1 = get_id(node->first_child);
+    }
+    else {
+        t1 = make_temp();
+        code1 = ir_exp(node->first_child, t1);
+    }
+    // insert t1 to arg_list_head[arg_list_head_index]
+    t1->next_arg = arg_list_head[arg_list_head_index];
+    arg_list_head[arg_list_head_index] = t1;
+    assert(arg_list_head[arg_list_head_index]);    
+    if (node->first_child->sibling == NULL) {
+        return code1;
+    }
+    else {
+        InterCode *code2 = ir_args(node->first_child->sibling->sibling);
+        return ir_link(code1, code2);
     }
 }
 
@@ -454,64 +950,73 @@ InterCode* ir_cond(ASTNode *node, Operand *label_true, Operand *label_false) {
             }
             return ir_link(ir_link(code1, code2), code3);
         }
-        // todo 7/1
+        // Exp AND Exp
         else if (strcmp(node->first_child->sibling->name, "AND") == 0) {
+            // Exp1
             InterCode *code1 = NULL;
             Operand *label1 = NULL;
-            if (label_false->u.label.no != -1) {
+            if (label_false->u.label.no != -1) { // if Exp1 false, goto label_false
                 code1 = ir_cond(node->first_child, fall_label, label_false);
             }
-            else {
+            else { // if Exp1 true, goto label1
                 label1 = make_label();
                 code1 = ir_cond(node->first_child, fall_label, label1);
             }
+            // Exp2
             InterCode *code2 = ir_cond(node->first_child->sibling->sibling, label_true, label_false);
             if (label_false->u.label.no != -1) {
-                return bind(code1, code2);
+                return ir_link(code1, code2);
             }
             else {
-                return bind(bind(code1, code2), make_ir(IR_LABEL, label1, NULL, NULL, NULL));
+                return ir_link(ir_link(code1, code2), make_ir(IR_LABEL, label1, NULL, NULL, NULL));
             }
         }
+        // Exp OR Exp
         else if (strcmp(node->first_child->sibling->name, "OR") == 0) {
+            // Exp1
             InterCode *code1 = NULL;
             Operand *label1 = NULL;
             if (label_true->u.label.no != -1) {
+                // if Exp1 true, goto label_true
                 code1 = ir_cond(node->first_child, label_true, fall_label);
             }
-            else {
+            else { // if Exp1 false, goto label1
                 label1 = make_label();
                 code1 = ir_cond(node->first_child, label1, fall_label);
             }
+            // Exp2
+            // if Exp2 true, goto label_true, else goto label_false
             InterCode *code2 = ir_cond(node->first_child->sibling->sibling, label_true, label_false);
             if (label_true->u.label.no != -1) {
-                return bind(code1, code2);
+                return ir_link(code1, code2);
             }
             else {
-                return bind(bind(code1, code2), make_ir(IR_LABEL, label1, NULL, NULL, NULL));
+                return ir_link(ir_link(code1, code2), make_ir(IR_LABEL, label1, NULL, NULL, NULL));
             }
         }
     }
+    // NOT Exp
     if (strcmp(node->first_child->name, "NOT") == 0) {
         return ir_cond(node->first_child->sibling, label_false, label_true);
     }
-    else {
+    else { // Constant, ID, other Exp
         Operand *t1 = NULL;
         InterCode *code1 = NULL;
-        if (all_constant(node)) {
+        if (all_constant(node)) { // Constant
             t1 = make_constant(get_constant(node));
         }
-        else if (is_id(node)) {
+        else if (is_id(node)) { // ID
             t1 = get_id(node);
         }
-        else {
+        else { // other Exp (but its first child is not Exp or NOT)
             t1 = make_temp();
             code1 = ir_exp(node, t1);
         }
+        
         InterCode *code3 = NULL;
             if (label_true->u.label.no != -1 && label_false->u.label.no != -1) {
-                code3 = bind(make_ir(IR_IF, label_true, t1, make_constant(0), 
-                    make_relop(RELOP_NE)), make_ir(IR_GOTO, label_false, NULL, NULL, NULL));
+                code3 = ir_link(make_ir(IR_IF, label_true, t1, make_constant(0), make_relop(RELOP_NE)), 
+                                make_ir(IR_GOTO, label_false, NULL, NULL, NULL));
             }
             else if (label_true->u.label.no != -1) {
                 code3 = make_ir(IR_IF, label_true, t1, make_constant(0), make_relop(RELOP_NE));
@@ -519,7 +1024,7 @@ InterCode* ir_cond(ASTNode *node, Operand *label_true, Operand *label_false) {
             else if (label_false->u.label.no != -1) {
                 code3 = make_ir(IR_IF, label_false, t1, make_constant(0), make_relop(RELOP_E));
             }
-            return bind(code1, code3);
+            return ir_link(code1, code3);
     }
 }
 
@@ -541,6 +1046,18 @@ Func* ir_insert_func_hash_table(int hash_index, char* func_name, Type *ret_type,
     func->next = func_hash[hash_index];
     func_hash[hash_index] = func;
     return func_hash[hash_index];
+}
+
+Func* ir_find_func_hash_table(int hash_index, char* func_name){
+    Func *cur = func_hash[hash_index];
+    if (cur == NULL)
+        return NULL;
+    while (cur){
+        if (strcmp(func_name, cur->name) == 0)
+            return cur;
+        cur = cur->next;
+    }
+    return NULL;
 }
 
 Field_List* ir_insert_field_hash_table(int hash_index, char* field_name, Type* type, ASTNode* node, int wrapped_layer, int is_struct){
@@ -632,7 +1149,15 @@ Operand* make_relop(int relop_kind) {
     return new_relop;
 }
 
-Operand *make_fall_label(){
+Operand* make_label() {
+    Operand *new_label = malloc(sizeof(Operand));
+    new_label->kind = OP_LABEL;
+    new_label->u.label.no = label_no ++;
+    insert_operand(new_label);
+    return new_label;
+}
+
+Operand* make_fall_label(){
     Operand* new_label = malloc(sizeof(Operand));
     new_label->kind = LABEL;
     new_label->u.label_no = -1;
@@ -758,6 +1283,25 @@ int size_of_array_type(Type* type) {
     return size;
 }
 
+// int size_of_array(ASTNode* node) {
+//     int size = 1;
+//     Type *type = ir_exp_type(node);
+//     Type *cur_type = type;
+//     while (cur_type && cur_type->kind == ARRAY) {
+//         size *= cur_type->u.array.size;
+//         cur_type = cur_type->u.array.elem;
+//     }
+//     assert(cur_type);
+//     if (cur_type->kind == BASIC) {
+//         size *= 4;
+//     }
+//     else {
+//         assert(cur_type->kind == STRUCTURE);
+//         size *= cur_type->u.structure.size;
+//     }
+//     return size;
+// }
+
 // 0: not all constant, 1: all constant
 int all_constant(ASTNode* node) {
     // Exp PLUS Exp || Exp MINUS Exp || Exp STAR Exp || Exp DIV Exp
@@ -847,4 +1391,92 @@ Operand* relop_reverse(Operand* relop) {
         default: break;
     }
     return new_relop;
+}
+
+Type* ir_exp_type(ASTNode *node){
+    if (node == NULL) return NULL;
+    if (strcmp(node->first_child->name, "Exp") == 0){
+        // Exp ASSIGNOP Exp
+        if (strcmp(node->first_child->sibling->name, "ASSIGNOP") == 0){
+            Type *type = ir_exp_type(node->first_child);
+            return type;
+        }
+        // Exp AND Exp || Exp OR Exp
+        else if (strcmp(node->first_child->sibling->name, "AND") == 0
+                || strcmp(node->first_child->sibling->name, "OR") == 0){
+            Type *type = ir_exp_type(node->first_child);
+            return type;
+        }
+        // Exp PLUS Exp || Exp MINUS Exp || Exp STAR Exp || Exp DIV Exp || Exp RELOP Exp
+        else if (strcmp(node->first_child->sibling->name, "PLUS") == 0
+            || strcmp(node->first_child->sibling->name, "MINUS") == 0
+            || strcmp(node->first_child->sibling->name, "STAR") == 0
+            || strcmp(node->first_child->sibling->name, "DIV") == 0
+            || strcmp(node->first_child->sibling->name, "RELOP") == 0){
+            Type *type = ir_exp_type(node->first_child);
+            return type;
+        }
+        // Exp LB Exp RB
+        else if (strcmp(node->first_child->sibling->name, "LB") == 0 && strcmp(node->first_child->sibling->sibling->name, "Exp") == 0){
+            Type *type = ir_exp_type(node->first_child);
+            assert(type);
+            return type->u.array.elem;
+        }
+        // Exp DOT ID
+        else if (strcmp(node->first_child->sibling->name, "DOT") == 0){
+            Type *type = ir_exp_type(node->first_child);
+            assert(type && type->kind == STRUCTURE);
+            Field_List *cur = type->u.structure.first_field;
+            while (cur){
+                if (strcmp(cur->name, node->first_child->sibling->sibling->value) == 0){
+                    return cur->type;
+                }
+                cur = cur->next_struct_field;
+            }
+            assert(0);
+            return NULL;
+        }
+    }
+    // LP Exp RP
+    else if (strcmp(node->first_child->name, "LP") == 0){
+        return ir_exp_type(node->first_child->sibling);
+    }
+    // MINUS Exp
+    else if (strcmp(node->first_child->name, "MINUS") == 0){
+        return ir_exp_type(node->first_child->sibling);
+    }
+    // NOT Exp
+    else if (strcmp(node->first_child->name, "NOT") == 0){
+        // Type *type = ir_exp_type(node->first_child->sibling);
+        Type *new_type = (Type *)malloc(sizeof(Type));
+        new_type->kind = BASIC;
+        new_type->u.basic = BASIC_INT;
+        return new_type;
+    }
+    // ID || ID LP RP || ID LP Args RP
+    else if (strcmp(node->first_child->name, "ID") == 0){
+        if (!node->first_child->sibling){
+            int hash_index = hash_pjw(node->first_child->value);
+            Field_List *field = ir_find_field_hash_table(hash_index, node->first_child->value, node->first_child, 0);
+            return field->type;
+        }
+        int hash_index = hash_pjw(node->first_child->value);
+        Func *func = ir_find_func_hash_table(hash_index, node->first_child->value);
+        return func->return_type;
+    }
+    // INT
+    else if (strcmp(node->first_child->name, "INT") == 0){
+        Type *type = (Type *)malloc(sizeof(Type));
+        type->kind = BASIC;
+        type->u.basic = BASIC_INT;
+        return type;
+    }
+    // FLOAT
+    else if (strcmp(node->first_child->name, "FLOAT") == 0){
+        Type *type = (Type *)malloc(sizeof(Type));
+        type->kind = BASIC;
+        type->u.basic = BASIC_FLOAT;
+        return type;
+    }
+    return NULL;
 }

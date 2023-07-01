@@ -117,17 +117,18 @@ Field_List* ir_var_list(ASTNode*);
 Field_List* ir_param_dec(ASTNode*);
 InterCode* ir_comp_st(ASTNode*, int);
 InterCode* ir_stmt_list(ASTNode*, int);
+InterCode* ir_stmt(ASTNode*, int);
+InterCode* ir_cond(ASTNode*, Operand*, Operand*); //node, label_true, label_false
+InterCode* ir_def_list(ASTNode*, int); // node, wrapped_layer
+InterCode* ir_def(ASTNode*, int); // node, wrapped_layer
+InterCode* ir_dec_list(ASTNode*, Type*, int); // node, type, wrapped_layer
+InterCode* ir_dec(ASTNode*, Type*, int); // node, type, wrapped_layer
+InterCode* ir_exp(ASTNode*, Operand*); // node, place
+Type* ir_exp_type(ASTNode*);
+InterCode* ir_args(ASTNode*);
 
-// InterCode* ir_stmt(ASTNode*, int);
-// InterCode* ir_def_list(ASTNode* node, int wrapped_layer);
-// InterCode* ir_def(ASTNode* node, int wrapped_layer);
-// InterCode* ir_dec_list(ASTNode* node, struct Type *type, int wrapped_layer);
-// InterCode* ir_dec(ASTNode* node, struct Type *type, int wrapped_layer);
-// InterCode* ir_exp(ASTNode* node, Operand *place);
-// InterCode* ir_args(ASTNode* node);
 
-// struct Type *ir_exp_type(ASTNode* node);
-// InterCode* ir_cond(ASTNode* node, Operand *label_true, Operand *label_false);
+
 // struct Field_List *ir_def_list_structure(ASTNode* node, int wrapped_layer);
 // struct Field_List *ir_def_structure(ASTNode* node, int wrapped_layer);
 // struct Field_List *ir_dec_list_structure(ASTNode* node, struct Type *type, int wrapped_layer);
@@ -136,33 +137,28 @@ InterCode* ir_stmt_list(ASTNode*, int);
 /* help functions */
 
 InterCode* ir_link(InterCode*, InterCode*);
-Field_List* ir_find_field_hash_table(int, char*, ASTNode*, int);
 Field_List* ir_insert_field_hash_table(int, char*, Type*, ASTNode*, int, int);
+Field_List* ir_find_field_hash_table(int, char*, ASTNode*, int);
 Func* ir_insert_func_hash_table(int, char*, Type*, Func*);
+Func* ir_find_func_hash_table(int, char*);
 int build_size_offset(Type*);
 int size_of_array_type(Type*);
 Operand* make_var(Field_List*);
 Operand* make_addr(Operand*, int);
 Operand* make_temp();
+Operand* make_func(Func*); // func
+Operand* make_relop(int); // kind
+Operand* make_label();
+Operand* make_fall_label();
 int all_constant(ASTNode*);
 int get_constant(ASTNode* );
 Operand* make_constant(int);
 InterCode* make_ir(int, Operand*, Operand*, Operand*2, Operand*); // (kind, res, op1, op2,relop)
 Operand* get_id(ASTNode*);
 int is_id(ASTNode*);
-
-// struct Func *ir_query_func_hash_table(unsigned hash_index, char *str);
-
+Operand* relop_reverse(Operand*);
 
 
-
-// Operand *make_func(struct Func *func);
-// Operand *make_fall_label();
-// Operand *make_label();
-
-// Operand *make_relop(int kind);
-
-// Operand *relop_reverse(Operand *relop);
 // int size_of_array(ASTNode*);
 
 // void ir_to_file(FILE *fp);
