@@ -2,6 +2,7 @@
 #define IR_H
 
 #include "semantics.h"
+#include "AST.h"
 
 struct Operand {
     enum {
@@ -16,8 +17,8 @@ struct Operand {
     union {
         struct {
             int no;
-            struct Field_List *field;
-            struct Func *parent_func;
+            Field_List *field;
+            Func *parent_func;
             int offset;
         } var;
         struct {
@@ -25,14 +26,14 @@ struct Operand {
         } label;
         struct {
             int no;
-            struct Func *parent_func;
+            Func *parent_func;
             int offset;
         } temp;
         struct {
             int val;
         } constant;
         struct {
-            struct Func *func;
+            Func* func;
         } func;
         struct {
             enum {
@@ -47,9 +48,9 @@ struct Operand {
         struct {
             int no;
             int val_kind;
-            struct Field_List* field;
+            Field_List* field;
             int ref_hidden;
-            struct Func *parent_func;
+            Func *parent_func;
             int size;
             int offset;
         } addr;
@@ -153,17 +154,18 @@ Operand* make_fall_label();
 int all_constant(ASTNode*);
 int get_constant(ASTNode* );
 Operand* make_constant(int);
-InterCode* make_ir(int, Operand*, Operand*, Operand*2, Operand*); // (kind, res, op1, op2,relop)
+InterCode* make_ir(int, Operand*, Operand*, Operand*, Operand*); // (kind, res, op1, op2,relop)
 Operand* get_id(ASTNode*);
 int is_id(ASTNode*);
 Operand* relop_reverse(Operand*);
-
-
+void ir_to_file(FILE*);
+char* show_ir(InterCode*);
+char* show_op(Operand*);
 // int size_of_array(ASTNode*);
 
-// void ir_to_file(FILE *fp);
-// char *show_ir(InterCode* code);
-// char *show_op(Operand *op);
+
+
+
 // void replace_label(int new_label_no, int old_label_no);
 // void replace_temp(int new_temp_no, int old_temp_no);
 // void post_optimize();

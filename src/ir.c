@@ -1,4 +1,6 @@
 #include "ir.h"
+#include "assert.h"
+#include "semantics.h"
 
 #define MAX_ARG_LIST_HEAD_NUM 512
 #define STACK_SIZE (8 * 1024)
@@ -52,7 +54,7 @@ void ir_insert_read_func(){
     type->kind = BASIC;
     type->u.basic = BASIC_INT;
     // param
-    func->param_size = 0;
+    func->param_num = 0;
     // func_name
     char *name = "read";
     strncpy(func->name, name, strlen(name));
@@ -69,7 +71,7 @@ void ir_insert_write_func(){
     type->kind = BASIC;
     type->u.basic = BASIC_INT;
     // param
-    func->param_size = 1;
+    func->param_num = 1;
     Field_List *field = malloc(sizeof(Field_List));
     field->is_struct = 0;
     field->wrapped_layer = 1;
@@ -137,12 +139,12 @@ Type* ir_struct_specifier(ASTNode* node, int wrapped_layer, int in_struct){
     if (strcmp(node->first_child->sibling->name, "OptTag") == 0){
         Type* struct_type = (Type*)malloc(sizeof(Type));
         struct_type->kind = STRUCTURE;
-        struct_type->u.structure.field_list = ir_def_list(node->first_child->sibling->sibling->sibling, wrapped_layer);
+        struct_type->u.structure.first_field = ir_def_list(node->first_child->sibling->sibling->sibling, wrapped_layer);
         struct_type->u.structure.size = build_size_offset(struct_type);
         struct_type->line_num = node->first_child->sibling->sibling->sibling->line_num;
         if (node->first_child->sibling->first_child){
             int hash_index = hash_pjw(node->first_child->sibling->first_child->value);
-            ir_insert_field_hash_table(hash_index, node->first_child->sibling->first_child->value, structure_type, node->first_child->sibling->first_child, wrapped_layer, 1); // params: is_struct
+            ir_insert_field_hash_table(hash_index, node->first_child->sibling->first_child->value, struct_type, node->first_child->sibling->first_child, wrapped_layer, 1); // params: is_struct
         }
         return struct_type;
     }
@@ -164,7 +166,7 @@ Field_List* ir_var_dec(ASTNode* node, Type* type, int in_structure, int wrapped_
         if (in_structure){ // in structure
             Field_List* new_field = (Field_List*)malloc(sizeof(Field_List));
             new_field->type = type;
-            new_field->is_structure = 0;
+            new_field->is_struct = 0;
             new_field->wrapped_layer = wrapped_layer;
             new_field->line_num = node->first_child->line_num;
             strcpy(new_field->name, node->first_child->value);
@@ -197,31 +199,31 @@ InterCode* ir_fun_dec(ASTNode* node, Type* ret_type){
     // ID LP VarList RP
     if (strcmp(node->first_child->sibling->sibling->name, "VarList") == 0){
        Field_List *params = ir_var_list(node->first_child->sibling->sibling);
-        if (params == NULL)-
+        if (params == NULL)
             return NULL;
         
         func->first_param = params;
         Field_List* func_ptr = func->first_param;
-        func->param_size = 0;
+        func->param_num = 0;
         while (func_ptr != NULL){
-            func->param_size ++;
+            func->param_num ++;
             func_ptr = func_ptr->next_param;
         }
 
         ir_insert_func_hash_table(hash_pjw(func->name), func->name, ret_type, func);
         InterCode* code1 = make_ir(IR_FUNCTION, func->op, NULL, NULL, NULL);
         func_ptr = func->first_param;
-        while (cur != NULL) {
+        while (func_ptr != NULL) {
             code1 = ir_link(code1, make_ir(IR_PARAM, func_ptr->op, NULL, NULL, NULL));
             func_ptr = func_ptr->next_param;
         }
         return code1;
     }
     else { // ID LP RP
-        func->param_size = 0;
+        func->param_num = 0;
         func->first_param = NULL;
         ir_insert_func_hash_table(hash_pjw(func->name), func->name, ret_type, func);
-        return make_ir(IR_FUNC, func->op, NULL, NULL, NULL);
+        return make_ir(IR_FUNCTION, func->op, NULL, NULL, NULL);
     }
 
 }
@@ -264,7 +266,7 @@ InterCode* ir_stmt_list(ASTNode* node, int wrapped_layer){
     return NULL;
 }
 
-InterCode *ir_stmt(AST_Node* node, int wrapped_layer) {
+InterCode *ir_stmt(ASTNode* node, int wrapped_layer) {
     if (node == NULL)
         return NULL;
     
@@ -1079,7 +1081,7 @@ Field_List* ir_insert_field_hash_table(int hash_index, char* field_name, Type* t
 Field_List* ir_find_field_hash_table(int hash_index, char* field_name, ASTNode* node, int look_for_structure){
     Field_List* field_ptr = var_hash[hash_index];
     while(field_ptr != NULL){
-        if (strcmp(field_now->name, field_name) == 0 && field_ptr->is_struct == look_for_structure)
+        if (strcmp(field_ptr->name, field_name) == 0 && field_ptr->is_struct == look_for_structure)
             return field_ptr;
         field_ptr = field_ptr->hash_list_index_next;
     }
@@ -1091,8 +1093,8 @@ Operand* make_var(Field_List* field){
     op->kind = OP_VARIABLE;
     op->u.var.no = var_no++;
     op->u.var.field = field;
-    new_var->u.var.parent_func = NULL;
-    new_var->u.var.offset = -1;
+    op->u.var.parent_func = NULL;
+    op->u.var.offset = -1;
     insert_operand(op);
     return op;
 }
@@ -1113,7 +1115,7 @@ Operand* make_addr(Operand* var, int ref_hidden){
 
 Operand* make_func(Func* func){
     Operand *op = malloc(sizeof(Operand));
-    op->kind = FUNCTION;
+    op->kind = OP_FUNC;
     op->u.func.func = func;
     insert_operand(op);
     if (strcmp(func->name, "read") == 0)
@@ -1159,8 +1161,8 @@ Operand* make_label() {
 
 Operand* make_fall_label(){
     Operand* new_label = malloc(sizeof(Operand));
-    new_label->kind = LABEL;
-    new_label->u.label_no = -1;
+    new_label->kind = OP_LABEL;
+    new_label->u.label.no = -1;
     return new_label;
 }
 
@@ -1208,7 +1210,7 @@ InterCode* make_ir(int kind, Operand* res, Operand* op1, Operand* op2, Operand* 
         case IR_PARAM:
         case IR_READ:
         case IR_WRITE:
-            code->u.nonop.result = res;
+            code->u.no_op.result = res;
             break;
         // single operand
         case IR_ASSIGN:
@@ -1217,24 +1219,24 @@ InterCode* make_ir(int kind, Operand* res, Operand* op1, Operand* op2, Operand* 
         case IR_ASSIGN_TO_DEREF:
         case IR_DEC:
         case IR_CALL:
-            code->u.sinop.result = res;
-            code->u.sinop.op = op1;
+            code->u.sin_op.result = res;
+            code->u.sin_op.op = op1;
             break;
         // double operand
         case IR_ADD:
         case IR_SUB:
         case IR_MUL:
         case IR_DIV:
-            code->u.binop.result = res;
-            code->u.binop.op1 = op1;
-            code->u.binop.op2 = op2;
+            code->u.bin_op.result = res;
+            code->u.bin_op.op1 = op1;
+            code->u.bin_op.op2 = op2;
             break;
         // triple operand
         case IR_IF:
-            code->u.trinop.op1 = op1;
-            code->u.trinop.op2 = op2;
-            code->u.trinop.relop = relop;
-            code->u.trinop.result = res;
+            code->u.tri_op.op1 = op1;
+            code->u.tri_op.op2 = op2;
+            code->u.tri_op.relop = relop;
+            code->u.tri_op.result = res;
             break;
         default:
             break;
@@ -1462,7 +1464,7 @@ Type* ir_exp_type(ASTNode *node){
         }
         int hash_index = hash_pjw(node->first_child->value);
         Func *func = ir_find_func_hash_table(hash_index, node->first_child->value);
-        return func->return_type;
+        return func->ret_type;
     }
     // INT
     else if (strcmp(node->first_child->name, "INT") == 0){
@@ -1479,4 +1481,77 @@ Type* ir_exp_type(ASTNode *node){
         return type;
     }
     return NULL;
+}
+
+
+/* gen_ir */
+void ir_to_file(FILE *fp) {
+    InterCode *cur = ir_head;
+    while (cur) {
+        fprintf(fp, "%s", show_ir(cur));
+        cur = cur->next;
+    }
+}
+char* show_ir(InterCode* code) {
+    assert(code);
+    char *buffer = malloc(50 * sizeof(char));
+    switch (code->kind) {
+    case IR_LABEL: sprintf(buffer, "LABEL %s :\n", show_op(code->u.no_op.result)); break;
+    case IR_FUNCTION: sprintf(buffer, "FUNCTION %s :\n", show_op(code->u.no_op.result)); break;
+    case IR_ASSIGN: sprintf(buffer, "%s := %s\n", show_op(code->u.sin_op.result), show_op(code->u.sin_op.op)); break;
+    case IR_ADD: sprintf(buffer, "%s := %s + %s\n", show_op(code->u.bin_op.result), show_op(code->u.bin_op.op1), show_op(code->u.bin_op.op2)); break;
+    case IR_SUB: sprintf(buffer, "%s := %s - %s\n", show_op(code->u.bin_op.result), show_op(code->u.bin_op.op1), show_op(code->u.bin_op.op2)); break;
+    case IR_MUL: sprintf(buffer, "%s := %s * %s\n", show_op(code->u.bin_op.result), show_op(code->u.bin_op.op1), show_op(code->u.bin_op.op2)); break;
+    case IR_DIV: sprintf(buffer, "%s := %s / %s\n", show_op(code->u.bin_op.result), show_op(code->u.bin_op.op1), show_op(code->u.bin_op.op2)); break;
+    case IR_REF_ASSIGN: sprintf(buffer, "%s := &%s\n", show_op(code->u.sin_op.result), show_op(code->u.sin_op.op)); break;
+    case IR_DEREF_ASSIGN: sprintf(buffer, "%s := *%s\n", show_op(code->u.sin_op.result), show_op(code->u.sin_op.op)); break;
+    case IR_ASSIGN_TO_DEREF: sprintf(buffer, "*%s := %s\n", show_op(code->u.sin_op.result), show_op(code->u.sin_op.op)); break;
+    case IR_GOTO: sprintf(buffer, "GOTO %s\n", show_op(code->u.no_op.result)); break;
+    case IR_IF: sprintf(buffer, "IF %s %s %s GOTO %s\n", show_op(code->u.tri_op.op1), show_op(code->u.tri_op.relop), show_op(code->u.tri_op.op2), show_op(code->u.tri_op.result)); break;
+    case IR_RETURN: sprintf(buffer, "RETURN %s\n", show_op(code->u.no_op.result)); break;
+    case IR_DEC: sprintf(buffer, "DEC v%d %d\n", code->u.sin_op.result->u.addr.no, code->u.sin_op.op->u.constant.val); break;
+    case IR_ARG: sprintf(buffer, "ARG %s\n", show_op(code->u.no_op.result)); break;
+    case IR_CALL: sprintf(buffer, "%s := CALL %s\n", show_op(code->u.sin_op.result), show_op(code->u.sin_op.op)); break;
+    case IR_PARAM: sprintf(buffer, "PARAM %s\n", show_op(code->u.no_op.result)); break;
+    case IR_READ: sprintf(buffer, "READ %s\n", show_op(code->u.no_op.result)); break;
+    case IR_WRITE: sprintf(buffer, "WRITE %s\n", show_op(code->u.no_op.result)); break;
+    default:
+        break;
+    }
+    return buffer;
+}
+
+char *show_op(Operand *op) {
+    assert(op);
+    char *buffer = malloc(50 * sizeof(char));
+    switch (op->kind) {
+    case OP_VARIABLE: sprintf(buffer, "v%d", op->u.var.no); break;
+    case OP_CONSTANT: sprintf(buffer, "#%d", op->u.constant.val); break;
+    case OP_TEMP: sprintf(buffer, "t%d", op->u.temp.no); break;
+    case OP_LABEL: sprintf(buffer, "label%d", op->u.label.no); break;
+    case OP_FUNC: sprintf(buffer, "%s", op->u.func.func->name); break;
+    case OP_RELOP: 
+        switch (op->u.relop.kind) {
+        case RELOP_G: sprintf(buffer, ">"); break;
+        case RELOP_L: sprintf(buffer, "<"); break;
+        case RELOP_GE: sprintf(buffer, ">="); break;
+        case RELOP_LE: sprintf(buffer, "<="); break;
+        case RELOP_E: sprintf(buffer, "=="); break;
+        case RELOP_NE: sprintf(buffer, "!="); break;
+        default: assert(0); break;
+        }
+        break;
+    case OP_ADDRESS: 
+        if (op->u.addr.ref_hidden == 0) {
+            if (op->u.addr.val_kind == OP_TEMP) sprintf(buffer, "&t%d", op->u.addr.no);
+            else sprintf(buffer, "&v%d", op->u.addr.no);
+        }
+        else {
+            if (op->u.addr.val_kind == OP_TEMP) sprintf(buffer, "t%d", op->u.addr.no);
+            else sprintf(buffer, "v%d", op->u.addr.no);
+        }
+        break;
+    default: assert(0); break;
+    }
+    return buffer;
 }

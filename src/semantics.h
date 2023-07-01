@@ -73,7 +73,7 @@ typedef struct Func_ Func;
 typedef struct Sem_Error_List_ Error_List;
 
 /* hash table */
-static int hash_pjw(char*);
+int hash_pjw(char*);
 void init_hash_table();
 void insert_read_func();
 void insert_write_func();

@@ -9,7 +9,7 @@ static Error_List* error_list_head = NULL;
 extern int error_flag;
 
 /* hash table */
-static int hash_pjw(char* name) {
+int hash_pjw(char* name) {
     unsigned int val = 0, i;
     for (; *name; ++name) {
         val = (val << 2) + *name;
