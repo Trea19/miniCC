@@ -1,31 +1,31 @@
 #ifndef AST_H
 #define AST_H
 
-#include <stdio.h>
 #include <stdlib.h>
-#include <stdarg.h>
 #include <string.h>
+#include <stdarg.h>
+#include <stdio.h>
 
 int yylex();
-int yyparse();
 void yyrestart(FILE*);
-int yyerror(const char*);
+int yyparse();
+int yyerror(const char *);
 
-typedef struct ASTNode {
-    int term_type; // 0 -> token; 1 -> non-terminal*/
-    int token_type; // type of tokens
-    int int_type; // 0 -> Dec; 1 -> Bin; 2 -> Oct; 3 -> Hex
+typedef struct AST_Node{
+    int term_type; /* 0 -> token; 1 -> non-terminated */
+    int token_type; /* type of tokens (enum) */
+    int int_type; /* 0 -> Dec; 1 -> Oct; 2 -> Hex */
     char *name;
     char *value;
-    int line_num;
-    struct ASTNode* parent;
-    struct ASTNode* first_child;
-    struct ASTNode* sibling;
-} ASTNode;
+    int row_index;
+    struct AST_Node *parent;
+    struct AST_Node *first_child;
+    struct AST_Node *sibling;
+} AST_Node;
 
-ASTNode* create_node(char* name, char* value, int token_type, int lineno);
-void add_child_sibling(ASTNode* parent, const int count, ...);
-void print_AST(ASTNode* node, int indent);
-int str_to_int(char* str, int type);
+int str_to_int(char *str, int type);
+AST_Node *create_node(char *name, char *value, int token_type, int lineno);
+void add_child_sibling(AST_Node *parent, const int count,  ...);
+void print_AST(AST_Node *node, int indent);
 
 #endif

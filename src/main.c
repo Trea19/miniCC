@@ -3,11 +3,11 @@
 #include "ir.h"
 #include "mips.h"
 
-#define OUTPUT_OPTION 0
+#define OUTPUT_OPTION 1  // 0->ir, 1->mips
 
 extern FILE *in;
 FILE *out;
-extern ASTNode *root;
+extern AST_Node *root;
 extern int error_flag;
 
 int main(int argc, char **argv) {
@@ -18,20 +18,33 @@ int main(int argc, char **argv) {
 	      }
 	      yyrestart(in);
     }
-	if (!(out = fopen(argv[2], "w"))) {
+    if (argc > 2){
+    	if (!(out = fopen(argv[2], "w"))) {
 		perror(argv[2]);
 		return 1;
 	}
-    root = malloc(sizeof(ASTNode));
+    } else {
+    	out = stdout;
+    }
+	
+    root = malloc(sizeof(AST_Node));
 	yyparse();
     if (error_flag == 0){
-	ir_generate(root);
-	mips_generate();
-	mips_to_file(out);
+        // print_AST(root, 0);
+		// semantics_analysis(root);
+		if (error_flag)
+			print_error_list();
+		else {
+			ir_generate(root);
+			if (OUTPUT_OPTION == 0) {
+				ir_to_file(out);
+			}
+			else {
+				mips_generate();
+				mips_to_file(out);
+			}
+		}
     }
-		
 	fclose(out);
 	return 0;
 }
-
-

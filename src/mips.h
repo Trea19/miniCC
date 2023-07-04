@@ -65,13 +65,13 @@ struct MipsCode {
     union {
         struct {
             struct MipsOperand *op1;
-        } no_op;
+        } nonop;
         struct {
             struct MipsOperand *op1, *op2;
-        } sin_op;
+        } sinop;
         struct {
             struct MipsOperand *op1, *op2, *op3;
-        } bin_op;
+        } binop;
     } u;
     struct MipsCode *next;
 };
@@ -120,7 +120,5 @@ char *show_m_op_reg(int reg_id);
 /* helper functions */
 void pre_load_head(FILE *fp);
 int get_temp_reg();
-
-
 
 #endif

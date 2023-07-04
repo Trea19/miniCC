@@ -1,3 +1,3 @@
 # miniCC
+mini C Compiler
 
-code refactoring :)

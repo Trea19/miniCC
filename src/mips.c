@@ -1,9 +1,10 @@
 #include "semantics.h"
+#include "utils.h"
 #include "AST.h"
+#include "debug.h"
 #include "ir.h"
 #include "math.h"
 #include "mips.h"
-#include "assert.h"
 
 extern InterCode *ir_head;
 extern Operand *read_op;
@@ -81,7 +82,7 @@ static inline int reg_t(const int index) {
         assert(0);
     if (index >= 0 && index <= 7)
         return reg[index + 8];
-    return reg[index + 24];
+    return reg[index + 16];
 }
 
 InterCode *ir_to_mips(InterCode *code) {
@@ -89,8 +90,8 @@ InterCode *ir_to_mips(InterCode *code) {
     // Log("%d", cnt ++);
     switch (code->kind) {
         case IR_FUNCTION: {
-            current_func = code->u.no_op.result->u.func.func;
-            MipsOperand *func_op = make_m_op_func(code->u.no_op.result); 
+            current_func = code->u.nonop.result->u.func.func;
+            MipsOperand *func_op = make_m_op_func(code->u.nonop.result); 
             make_mips_code_func(func_op);
             make_mips_code_sp_add(-4);
             make_mips_code_sw(fp_reg, make_m_op_arg_mem(0, sp_reg));
@@ -99,12 +100,12 @@ InterCode *ir_to_mips(InterCode *code) {
             return code->next;
         }
         case IR_LABEL: {
-            MipsOperand *label_op = make_m_op_label(code->u.no_op.result); 
+            MipsOperand *label_op = make_m_op_label(code->u.nonop.result); 
             make_mips_code_label(label_op);
             return code->next;
         }
         case IR_GOTO: {
-            MipsOperand *label_op = make_m_op_label(code->u.no_op.result);
+            MipsOperand *label_op = make_m_op_label(code->u.nonop.result);
             make_mips_code_goto(label_op);
             return code->next;
         }
@@ -112,61 +113,61 @@ InterCode *ir_to_mips(InterCode *code) {
         case IR_SUB:
         case IR_MUL:
         case IR_DIV: { // a = b [+|-|*|/] c
-            MipsOperand *op1 = make_m_op_m2r(code->u.bin_op.op1); // lw reg1 b
-            MipsOperand *op2 = make_m_op_m2r(code->u.bin_op.op2); // lw reg2 c
+            MipsOperand *op1 = make_m_op_m2r(code->u.binop.op1); // lw reg1 b
+            MipsOperand *op2 = make_m_op_m2r(code->u.binop.op2); // lw reg2 c
             MipsOperand *dst_reg = make_m_op_new_temp(); // reg3
             make_mips_code_arith(dst_reg, op1, op2, code->kind); // reg3 = reg1 [+|-|*|/] reg2
-            MipsOperand *dst_mem = make_m_op_get_m(code->u.bin_op.result, 4); // a
+            MipsOperand *dst_mem = make_m_op_get_m(code->u.binop.result, 4); // a
             make_mips_code_sw(dst_reg, dst_mem); // sw reg3 a
             return code->next;
         }
         case IR_DEC: { // DEC array [size]
-            make_m_op_get_m(code->u.sin_op.result, code->u.sin_op.op->u.constant.val);
+            make_m_op_get_m(code->u.sinop.result, code->u.sinop.op->u.constant.val);
             return code->next;
         }
         case IR_IF: { // if a [relop] b goto label
-            MipsOperand *op1 = make_m_op_m2r(code->u.tri_op.op1); // lw reg1 a
-            MipsOperand *op2 = make_m_op_m2r(code->u.tri_op.op2); // lw reg2 b
-            MipsOperand *label_op = make_m_op_label(code->u.tri_op.result);
-            make_mips_code_if(op1, code->u.tri_op.relop->u.relop.kind, op2, label_op);
+            MipsOperand *op1 = make_m_op_m2r(code->u.trinop.op1); // lw reg1 a
+            MipsOperand *op2 = make_m_op_m2r(code->u.trinop.op2); // lw reg2 b
+            MipsOperand *label_op = make_m_op_label(code->u.trinop.result);
+            make_mips_code_if(op1, code->u.trinop.relop->u.relop.kind, op2, label_op);
             return code->next;
         }
         case IR_ASSIGN: { // a = b
-            assert(code->u.sin_op.op->kind != OP_ADDRESS && code->u.sin_op.result->kind != OP_ADDRESS);
-            MipsOperand *op = make_m_op_m2r(code->u.sin_op.op); // lw reg1 b
+            assert(code->u.sinop.op->kind != OP_ADDRESS && code->u.sinop.result->kind != OP_ADDRESS);
+            MipsOperand *op = make_m_op_m2r(code->u.sinop.op); // lw reg1 b
             MipsOperand *dst_reg = make_m_op_new_temp(); // reg2
             make_mips_code_move(dst_reg, op);
-            MipsOperand *dst_mem = make_m_op_get_m(code->u.sin_op.result, 4); // a
+            MipsOperand *dst_mem = make_m_op_get_m(code->u.sinop.result, 4); // a
             make_mips_code_sw(dst_reg, dst_mem);
             return code->next;
         }
         case IR_DEREF_ASSIGN: { // a = *b
-            MipsOperand *src_reg = make_m_op_m2r(code->u.sin_op.op); // lw reg1 b
+            MipsOperand *src_reg = make_m_op_m2r(code->u.sinop.op); // lw reg1 b
             MipsOperand *src_mem = make_m_op_arg_mem(0, src_reg); // 0(reg1)
             MipsOperand *src_reg2 = make_m_op_new_temp(); // reg2
             make_mips_code_lw(src_reg2, src_mem); // lw reg2 0(reg1)
-            MipsOperand *dst_mem = make_m_op_get_m(code->u.sin_op.result, 4); // a
+            MipsOperand *dst_mem = make_m_op_get_m(code->u.sinop.result, 4); // a
             make_mips_code_sw(src_reg2, dst_mem); // sw reg2 a
             return code->next; 
         }
         case IR_ASSIGN_TO_DEREF: { // *a = b
-            MipsOperand *src_reg = make_m_op_m2r(code->u.sin_op.op); // lw reg2 b
-            MipsOperand *dst_reg = make_m_op_m2r(code->u.sin_op.result); // lw reg1 a
+            MipsOperand *src_reg = make_m_op_m2r(code->u.sinop.op); // lw reg2 b
+            MipsOperand *dst_reg = make_m_op_m2r(code->u.sinop.result); // lw reg1 a
             MipsOperand *dst_mem = make_m_op_arg_mem(0, dst_reg); // 0(reg1)
             make_mips_code_sw(src_reg, dst_mem); // sw reg2 0(reg1)
             return code->next;
         }
         case IR_REF_ASSIGN: { // a = &b
             assert(0);
-            MipsOperand *src_mem = make_m_op_get_m(code->u.sin_op.op, 4); // &b
+            MipsOperand *src_mem = make_m_op_get_m(code->u.sinop.op, 4); // &b
             MipsOperand *dst_reg = make_m_op_new_temp(); // reg1
             make_mips_code_la(dst_reg, src_mem); // la reg1 &b
-            MipsOperand *dst_mem = make_m_op_get_m(code->u.sin_op.result, 4); // a
+            MipsOperand *dst_mem = make_m_op_get_m(code->u.sinop.result, 4); // a
             make_mips_code_sw(dst_reg, dst_mem); // sw reg1 a
             return code->next;
         }
         case IR_RETURN: { // return x
-            MipsOperand *src_reg = make_m_op_m2r(code->u.no_op.result); // lw|li reg1 x
+            MipsOperand *src_reg = make_m_op_m2r(code->u.nonop.result); // lw|li reg1 x
             make_mips_code_move(v0_reg, src_reg); // move v0 reg1
             make_mips_code_move(sp_reg, fp_reg); // move sp fp
             make_mips_code_lw(fp_reg, make_m_op_arg_mem(0, sp_reg)); // lw fp 0(sp)
@@ -175,7 +176,7 @@ InterCode *ir_to_mips(InterCode *code) {
             return code->next;
         }
         case IR_CALL: { // x = call f
-            MipsOperand *dst_label = make_m_op_func(code->u.sin_op.op); // f
+            MipsOperand *dst_label = make_m_op_func(code->u.sinop.op); // f
             make_mips_code_sp_add(-4); // sp = sp - 4
             make_mips_code_sw(ra_reg, make_m_op_arg_mem(0, sp_reg)); // sw ra 0(sp)
             make_mips_code_jal(dst_label); // jal f
@@ -183,7 +184,7 @@ InterCode *ir_to_mips(InterCode *code) {
             make_mips_code_sp_add(4); // sp = sp + 4
             MipsOperand *ret_reg = make_m_op_new_temp(); // reg1
             make_mips_code_move(ret_reg, v0_reg); // move reg1 v0
-            MipsOperand *ret_mem = make_m_op_get_m(code->u.sin_op.result, 4); // x
+            MipsOperand *ret_mem = make_m_op_get_m(code->u.sinop.result, 4); // x
             make_mips_code_sw(ret_reg, ret_mem); // sw reg1 x
             return code->next;
         }
@@ -196,14 +197,14 @@ InterCode *ir_to_mips(InterCode *code) {
             make_mips_code_lw(ra_reg, make_m_op_arg_mem(0, sp_reg)); // lw ra 0(sp)
             make_mips_code_sp_add(4); // sp = sp + size
             make_mips_code_move(dst_reg, v0_reg); // move reg1 v0
-            MipsOperand *ret_mem = make_m_op_get_m(code->u.no_op.result, 4); // x
+            MipsOperand *ret_mem = make_m_op_get_m(code->u.nonop.result, 4); // x
             make_mips_code_sw(dst_reg, ret_mem); // sw reg1 x
             return code->next;
         }
         case IR_WRITE: { // write x
             MipsOperand *dst_reg = make_m_op_new_temp(); // reg1
             MipsOperand *write_mips_op = make_m_op_func(write_op); // write
-            MipsOperand *x_reg = make_m_op_m2r(code->u.no_op.result); // lw reg1 x
+            MipsOperand *x_reg = make_m_op_m2r(code->u.nonop.result); // lw reg1 x
             make_mips_code_move(a0_reg, x_reg); // move a0 x
             make_mips_code_sp_add(-4); // sp = sp - 4
             make_mips_code_sw(ra_reg, make_m_op_arg_mem(0, sp_reg)); // sw ra 0(sp)
@@ -217,7 +218,7 @@ InterCode *ir_to_mips(InterCode *code) {
             InterCode *cur_arg_code = code;
             int cur_offset = 0;
             while (cur_arg_code != NULL && cur_arg_code->kind == IR_ARG) {
-                MipsOperand *src_reg = make_m_op_m2r(cur_arg_code->u.no_op.result); // lw reg1 x
+                MipsOperand *src_reg = make_m_op_m2r(cur_arg_code->u.nonop.result); // lw reg1 x
                 MipsOperand *dst_mem = make_m_op_arg_mem(cur_offset, sp_reg); // offset(sp)
                 make_mips_code_sw(src_reg, dst_mem); // sw reg1 offset(sp)
                 cur_arg_code = cur_arg_code->next;
@@ -228,9 +229,9 @@ InterCode *ir_to_mips(InterCode *code) {
         }
         case IR_PARAM: { //依次读取fp上方offset=4开始的参数 param x
             InterCode *cur_param_code = code;
-            int cur_offset = 4 * current_func->param_num + 4;
+            int cur_offset = 4 * current_func->param_size + 4;
             while (cur_param_code != NULL && cur_param_code->kind == IR_PARAM) {
-                make_m_op_set_param(cur_param_code->u.no_op.result, cur_offset);
+                make_m_op_set_param(cur_param_code->u.nonop.result, cur_offset);
                 cur_param_code = cur_param_code->next;
                 cur_offset -= 4;
             }
@@ -287,16 +288,16 @@ MipsOperand *make_m_op_get_m(Operand *op, int size) {
             break;
         }
         case OP_ADDRESS: {
-            if (op->u.addr.parent_func == NULL) {
-                op->u.addr.parent_func = current_func;
-                op->u.addr.parent_func->top_offset -= size;
-                op->u.addr.offset = op->u.addr.parent_func->top_offset;
-                // Log("new offset: %d", op->u.addr.offset);
-                offset = op->u.addr.offset;
+            if (op->u.address.parent_func == NULL) {
+                op->u.address.parent_func = current_func;
+                op->u.address.parent_func->top_offset -= size;
+                op->u.address.offset = op->u.address.parent_func->top_offset;
+                // Log("new offset: %d", op->u.address.offset);
+                offset = op->u.address.offset;
             }
             else {
-                // Log("old offset: %d", op->u.addr.offset);
-                offset = op->u.addr.offset;
+                // Log("old offset: %d", op->u.address.offset);
+                offset = op->u.address.offset;
             }
             break;
         }
@@ -349,10 +350,10 @@ MipsOperand *make_m_op_m2r(Operand *op) {
             return var_reg;
         }
         case OP_ADDRESS: {
-            assert(op->u.addr.parent_func != NULL && op->u.addr.parent_func == current_func);
+            assert(op->u.address.parent_func != NULL && op->u.address.parent_func == current_func);
             MipsOperand *addr_mem = malloc(sizeof(MipsOperand));
             addr_mem->kind = M_OP_STA;
-            addr_mem->u.sta.offset = op->u.addr.offset;
+            addr_mem->u.sta.offset = op->u.address.offset;
             addr_mem->u.sta.reg_id = REG_FP;
             MipsOperand *addr_reg = malloc(sizeof(MipsOperand));
             addr_reg->kind = M_OP_REG;
@@ -395,33 +396,33 @@ MipsOperand *make_m_op_label(Operand *label_op) {
 void make_mips_code_la(MipsOperand *addr_reg, MipsOperand *addr_mem) {
     MipsCode *code = malloc(sizeof(MipsCode));
     code->kind = MIPS_LA;
-    code->u.sin_op.op1 = addr_reg;
-    code->u.sin_op.op2 = addr_mem;
-    reg[code->u.sin_op.op1->u.reg.id] = 1;
+    code->u.sinop.op1 = addr_reg;
+    code->u.sinop.op2 = addr_mem;
+    reg[code->u.sinop.op1->u.reg.id] = 1;
     insert_mips_code(code);
 }
 
 void make_mips_code_sp_add(int size) {
     MipsCode *code = malloc(sizeof(MipsCode));
     code->kind = MIPS_ADDI;
-    code->u.bin_op.op1 = sp_reg;
-    code->u.bin_op.op2 = sp_reg;
+    code->u.binop.op1 = sp_reg;
+    code->u.binop.op2 = sp_reg;
     MipsOperand *imm = malloc(sizeof(MipsOperand));
     imm->kind = M_OP_IMM;
     imm->u.imm.val = size;
-    code->u.bin_op.op3 = imm;
+    code->u.binop.op3 = imm;
     insert_mips_code(code);
 }
 
 void make_mips_code_fp_add(int size) {
     MipsCode *code = malloc(sizeof(MipsCode));
     code->kind = MIPS_ADDI;
-    code->u.bin_op.op1 = fp_reg;
-    code->u.bin_op.op2 = fp_reg;
+    code->u.binop.op1 = fp_reg;
+    code->u.binop.op2 = fp_reg;
     MipsOperand *imm = malloc(sizeof(MipsOperand));
     imm->kind = M_OP_IMM;
     imm->u.imm.val = size;
-    code->u.bin_op.op3 = imm;
+    code->u.binop.op3 = imm;
     insert_mips_code(code);
 }
 
@@ -429,7 +430,7 @@ void make_mips_code_jr(MipsOperand *ra_op) {
     assert(ra_op != NULL && ra_op->u.reg.id == REG_RA);
     MipsCode *code = malloc(sizeof(MipsCode));
     code->kind = MIPS_JR;
-    code->u.no_op.op1 = ra_op;
+    code->u.nonop.op1 = ra_op;
     insert_mips_code(code);
 }
 
@@ -437,7 +438,7 @@ void make_mips_code_jal(MipsOperand *label_op) {
     assert(label_op != NULL && label_op->kind == M_OP_LABEL);
     MipsCode *code = malloc(sizeof(MipsCode));
     code->kind = MIPS_JAL;
-    code->u.no_op.op1 = label_op;
+    code->u.nonop.op1 = label_op;
     insert_mips_code(code);
 }
 
@@ -445,8 +446,8 @@ void make_mips_code_move(MipsOperand *dst_op, MipsOperand *op) {
     assert(dst_op != NULL && dst_op->kind == M_OP_REG && op != NULL && op->kind == M_OP_REG);
     MipsCode *code = malloc(sizeof(MipsCode));
     code->kind = MIPS_MOVE;
-    code->u.sin_op.op1 = dst_op;
-    code->u.sin_op.op2 = op;
+    code->u.sinop.op1 = dst_op;
+    code->u.sinop.op2 = op;
     insert_mips_code(code);
 }
 
@@ -461,19 +462,19 @@ void make_mips_code_arith(MipsOperand *dst_op, MipsOperand *op1, MipsOperand *op
         default: assert(0);
     }
     if (code->kind != MIPS_DIV) {
-        code->u.bin_op.op1 = dst_op;
-        code->u.bin_op.op2 = op1;
-        code->u.bin_op.op3 = op2;
+        code->u.binop.op1 = dst_op;
+        code->u.binop.op2 = op1;
+        code->u.binop.op3 = op2;
         reg[dst_op->u.reg.id] = 1;
         insert_mips_code(code);
     }
     else {
-        code->u.sin_op.op1 = op1;
-        code->u.sin_op.op2 = op2;
+        code->u.sinop.op1 = op1;
+        code->u.sinop.op2 = op2;
         insert_mips_code(code);
         MipsCode *code2 = malloc(sizeof(MipsCode));
         code2->kind = MIPS_MFLO;
-        code2->u.no_op.op1 = dst_op;
+        code2->u.nonop.op1 = dst_op;
         reg[dst_op->u.reg.id] = 1;
         insert_mips_code(code2);
     }
@@ -481,9 +482,9 @@ void make_mips_code_arith(MipsOperand *dst_op, MipsOperand *op1, MipsOperand *op
 
 void make_mips_code_if(MipsOperand *op1, int relop_kind, MipsOperand *op2, MipsOperand *label_op) {
     MipsCode *code = malloc(sizeof(MipsCode));
-    code->u.bin_op.op1 = op1;
-    code->u.bin_op.op2 = op2;
-    code->u.bin_op.op3 = label_op;
+    code->u.binop.op1 = op1;
+    code->u.binop.op2 = op2;
+    code->u.binop.op3 = label_op;
     switch (relop_kind) {
         case RELOP_E: code->kind = MIPS_BEQ; break;
         case RELOP_NE: code->kind = MIPS_BNE; break;
@@ -499,16 +500,16 @@ void make_mips_code_if(MipsOperand *op1, int relop_kind, MipsOperand *op2, MipsO
 void make_mips_code_sw(MipsOperand *var_reg, MipsOperand *var_mem) {
     MipsCode *code = malloc(sizeof(MipsCode));
     code->kind = MIPS_SW;
-    code->u.sin_op.op1 = var_reg;
-    code->u.sin_op.op2 = var_mem;
+    code->u.sinop.op1 = var_reg;
+    code->u.sinop.op2 = var_mem;
     insert_mips_code(code);
 }
 
 void make_mips_code_lw(MipsOperand *var_reg, MipsOperand *var_mem) {
     MipsCode *code = malloc(sizeof(MipsCode));
     code->kind = MIPS_LW;
-    code->u.sin_op.op1 = var_reg;
-    code->u.sin_op.op2 = var_mem;
+    code->u.sinop.op1 = var_reg;
+    code->u.sinop.op2 = var_mem;
     reg[var_reg->u.reg.id] = 1;
     insert_mips_code(code);
 }
@@ -516,8 +517,8 @@ void make_mips_code_lw(MipsOperand *var_reg, MipsOperand *var_mem) {
 void make_mips_code_li(MipsOperand *imm_reg, MipsOperand *imm) {
     MipsCode *code = malloc(sizeof(MipsCode));
     code->kind = MIPS_LI;
-    code->u.sin_op.op1 = imm_reg;
-    code->u.sin_op.op2 = imm;
+    code->u.sinop.op1 = imm_reg;
+    code->u.sinop.op2 = imm;
     reg[imm_reg->u.reg.id] = 1;
     insert_mips_code(code);
 }
@@ -525,21 +526,21 @@ void make_mips_code_li(MipsOperand *imm_reg, MipsOperand *imm) {
 void make_mips_code_func(MipsOperand *func_op) {
     MipsCode *code = malloc(sizeof(MipsCode));
     code->kind = MIPS_LABEL;
-    code->u.no_op.op1 = func_op;
+    code->u.nonop.op1 = func_op;
     insert_mips_code(code);
 }
 
 void make_mips_code_label(MipsOperand *label_op) {
     MipsCode *code = malloc(sizeof(MipsCode));
     code->kind = MIPS_LABEL;
-    code->u.no_op.op1 = label_op;
+    code->u.nonop.op1 = label_op;
     insert_mips_code(code);
 }
 
 void make_mips_code_goto(MipsOperand *label_op) {
     MipsCode *code = malloc(sizeof(MipsCode));
     code->kind = MIPS_J;
-    code->u.no_op.op1 = label_op;
+    code->u.nonop.op1 = label_op;
     insert_mips_code(code);
 }
 
@@ -563,31 +564,31 @@ char *show_mips(MipsCode *code) {
     assert(code != NULL);
     char *buffer = malloc(50 * sizeof(char));
     switch (code->kind) {
-        case MIPS_ADD: sprintf(buffer, "  add %s, %s, %s", show_m_op(code->u.bin_op.op1), show_m_op(code->u.bin_op.op2), show_m_op(code->u.bin_op.op3)); break;
-        case MIPS_ADDI: sprintf(buffer, "  addi %s, %s, %s", show_m_op(code->u.bin_op.op1), show_m_op(code->u.bin_op.op2), show_m_op(code->u.bin_op.op3)); break;
-        case MIPS_SUB: sprintf(buffer, "  sub %s, %s, %s", show_m_op(code->u.bin_op.op1), show_m_op(code->u.bin_op.op2), show_m_op(code->u.bin_op.op3)); break;
-        case MIPS_MUL: sprintf(buffer, "  mul %s, %s, %s", show_m_op(code->u.bin_op.op1), show_m_op(code->u.bin_op.op2), show_m_op(code->u.bin_op.op3)); break;
-        case MIPS_DIV: sprintf(buffer, "  div %s, %s", show_m_op(code->u.sin_op.op1), show_m_op(code->u.sin_op.op2)); break;
-        case MIPS_MFLO: sprintf(buffer, "  mflo %s", show_m_op(code->u.no_op.op1)); break;
-        case MIPS_BEQ: sprintf(buffer, "  beq %s, %s, %s", show_m_op(code->u.bin_op.op1), show_m_op(code->u.bin_op.op2), show_m_op(code->u.bin_op.op3)); break;
-        case MIPS_BGE: sprintf(buffer, "  bge %s, %s, %s", show_m_op(code->u.bin_op.op1), show_m_op(code->u.bin_op.op2), show_m_op(code->u.bin_op.op3)); break;
-        case MIPS_BGT: sprintf(buffer, "  bgt %s, %s, %s", show_m_op(code->u.bin_op.op1), show_m_op(code->u.bin_op.op2), show_m_op(code->u.bin_op.op3)); break;
-        case MIPS_BLE: sprintf(buffer, "  ble %s, %s, %s", show_m_op(code->u.bin_op.op1), show_m_op(code->u.bin_op.op2), show_m_op(code->u.bin_op.op3)); break;
-        case MIPS_BLT: sprintf(buffer, "  blt %s, %s, %s", show_m_op(code->u.bin_op.op1), show_m_op(code->u.bin_op.op2), show_m_op(code->u.bin_op.op3)); break;
-        case MIPS_BNE: sprintf(buffer, "  bne %s, %s, %s", show_m_op(code->u.bin_op.op1), show_m_op(code->u.bin_op.op2), show_m_op(code->u.bin_op.op3)); break;
-        case MIPS_J: sprintf(buffer, "  j %s", show_m_op(code->u.no_op.op1)); break;
-        case MIPS_JAL: sprintf(buffer, "  jal %s", show_m_op(code->u.no_op.op1)); break;
-        case MIPS_JR: sprintf(buffer, "  jr %s", show_m_op(code->u.no_op.op1)); break;
-        case MIPS_LA: sprintf(buffer, "  la %s, %s", show_m_op(code->u.sin_op.op1), show_m_op(code->u.sin_op.op2)); break;
-        case MIPS_LI: sprintf(buffer, "  li %s, %s", show_m_op(code->u.sin_op.op1), show_m_op(code->u.sin_op.op2)); break;
-        case MIPS_LW: sprintf(buffer, "  lw %s, %s", show_m_op(code->u.sin_op.op1), show_m_op(code->u.sin_op.op2)); break;
-        case MIPS_MOVE: sprintf(buffer, "  move %s, %s", show_m_op(code->u.sin_op.op1), show_m_op(code->u.sin_op.op2)); break;
-        case MIPS_SW: sprintf(buffer, "  sw %s, %s", show_m_op(code->u.sin_op.op1), show_m_op(code->u.sin_op.op2)); break;
+        case MIPS_ADD: sprintf(buffer, "  add %s, %s, %s", show_m_op(code->u.binop.op1), show_m_op(code->u.binop.op2), show_m_op(code->u.binop.op3)); break;
+        case MIPS_ADDI: sprintf(buffer, "  addi %s, %s, %s", show_m_op(code->u.binop.op1), show_m_op(code->u.binop.op2), show_m_op(code->u.binop.op3)); break;
+        case MIPS_SUB: sprintf(buffer, "  sub %s, %s, %s", show_m_op(code->u.binop.op1), show_m_op(code->u.binop.op2), show_m_op(code->u.binop.op3)); break;
+        case MIPS_MUL: sprintf(buffer, "  mul %s, %s, %s", show_m_op(code->u.binop.op1), show_m_op(code->u.binop.op2), show_m_op(code->u.binop.op3)); break;
+        case MIPS_DIV: sprintf(buffer, "  div %s, %s", show_m_op(code->u.sinop.op1), show_m_op(code->u.sinop.op2)); break;
+        case MIPS_MFLO: sprintf(buffer, "  mflo %s", show_m_op(code->u.nonop.op1)); break;
+        case MIPS_BEQ: sprintf(buffer, "  beq %s, %s, %s", show_m_op(code->u.binop.op1), show_m_op(code->u.binop.op2), show_m_op(code->u.binop.op3)); break;
+        case MIPS_BGE: sprintf(buffer, "  bge %s, %s, %s", show_m_op(code->u.binop.op1), show_m_op(code->u.binop.op2), show_m_op(code->u.binop.op3)); break;
+        case MIPS_BGT: sprintf(buffer, "  bgt %s, %s, %s", show_m_op(code->u.binop.op1), show_m_op(code->u.binop.op2), show_m_op(code->u.binop.op3)); break;
+        case MIPS_BLE: sprintf(buffer, "  ble %s, %s, %s", show_m_op(code->u.binop.op1), show_m_op(code->u.binop.op2), show_m_op(code->u.binop.op3)); break;
+        case MIPS_BLT: sprintf(buffer, "  blt %s, %s, %s", show_m_op(code->u.binop.op1), show_m_op(code->u.binop.op2), show_m_op(code->u.binop.op3)); break;
+        case MIPS_BNE: sprintf(buffer, "  bne %s, %s, %s", show_m_op(code->u.binop.op1), show_m_op(code->u.binop.op2), show_m_op(code->u.binop.op3)); break;
+        case MIPS_J: sprintf(buffer, "  j %s", show_m_op(code->u.nonop.op1)); break;
+        case MIPS_JAL: sprintf(buffer, "  jal %s", show_m_op(code->u.nonop.op1)); break;
+        case MIPS_JR: sprintf(buffer, "  jr %s", show_m_op(code->u.nonop.op1)); break;
+        case MIPS_LA: sprintf(buffer, "  la %s, %s", show_m_op(code->u.sinop.op1), show_m_op(code->u.sinop.op2)); break;
+        case MIPS_LI: sprintf(buffer, "  li %s, %s", show_m_op(code->u.sinop.op1), show_m_op(code->u.sinop.op2)); break;
+        case MIPS_LW: sprintf(buffer, "  lw %s, %s", show_m_op(code->u.sinop.op1), show_m_op(code->u.sinop.op2)); break;
+        case MIPS_MOVE: sprintf(buffer, "  move %s, %s", show_m_op(code->u.sinop.op1), show_m_op(code->u.sinop.op2)); break;
+        case MIPS_SW: sprintf(buffer, "  sw %s, %s", show_m_op(code->u.sinop.op1), show_m_op(code->u.sinop.op2)); break;
         case MIPS_LABEL: 
-            if (code->u.no_op.op1->u.label.is_func == 1)
-                sprintf(buffer, "\n%s:", show_m_op(code->u.no_op.op1));
+            if (code->u.nonop.op1->u.label.is_func == 1)
+                sprintf(buffer, "\n%s:", show_m_op(code->u.nonop.op1));
             else
-                sprintf(buffer, "%s:", show_m_op(code->u.no_op.op1));
+                sprintf(buffer, "%s:", show_m_op(code->u.nonop.op1));
             break;
         default: assert(0);
     }
