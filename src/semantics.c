@@ -818,16 +818,16 @@ void pop_local_var(int wrapped_layer){
             var_hash[i] = elem->hash_list_next;
             elem = var_hash[i];
         }
-		while (elem != NULL){
-			temp = elem;
-			elem = elem->hash_list_next;
+        while (elem != NULL){
+            temp = elem;
+            elem = elem->hash_list_next;
             if (elem == NULL){
                 break;
             }
-			else if(elem->wrapped_layer == wrapped_layer){
-			    temp->hash_list_next = elem->hash_list_next;
-		    }
-		}    
+            else if(elem->wrapped_layer == wrapped_layer){
+                temp->hash_list_next = elem->hash_list_next;
+            }
+        }    
     }
 }
 

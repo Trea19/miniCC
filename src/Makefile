@@ -14,16 +14,16 @@ LFO = $(LFC:.c=.o)
 YFO = $(YFC:.c=.o)
 
 miniCC: syntax $(filter-out $(LFO),$(OBJS))
-	$(CC) -o ../miniCC $(filter-out $(LFO),$(OBJS)) -ll -ly -ggdb
+    $(CC) -o ../miniCC $(filter-out $(LFO),$(OBJS)) -ll -ly -ggdb
 
 syntax: lexical syntax-c
-	$(CC) -c $(YFC) -o $(YFO) -ggdb
+    $(CC) -c $(YFC) -o $(YFO) -ggdb
 
 lexical: $(LFILE)
-	$(FLEX) -o $(LFC) $(LFILE)
+    $(FLEX) -o $(LFC) $(LFILE)
 
 syntax-c: $(YFILE)
-	$(BISON) -o $(YFC) -d -v $(YFILE)
+    $(BISON) -o $(YFC) -d -v $(YFILE)
 
 -include $(patsubst %.o, %.d, $(OBJS))
 
@@ -31,7 +31,7 @@ syntax-c: $(YFILE)
 .PHONY: clean 
 
 clean:
-	rm -f lex.yy.c syntax.tab.c syntax.tab.h syntax.output
-	rm -f $(OBJS) $(OBJS:.o=.d)
-	rm -f $(LFC) $(YFC) $(YFC:.c=.h)
+    rm -f lex.yy.c syntax.tab.c syntax.tab.h syntax.output
+    rm -f $(OBJS) $(OBJS:.o=.d)
+    rm -f $(LFC) $(YFC) $(YFC:.c=.h)
 
