@@ -4,15 +4,7 @@ extern int yycolumn;
 extern int yylineno;
 extern int empty_flag;
 
-int str_to_int(char *str, int type){
-    if (type == 0)
-        return atoi(str);
-    else if (type == 1)
-        return (int)strtol(str, NULL, 8); 
-    else
-        return (int)strtol(str, NULL, 16);
-}
-
+/* AST */
 AST_Node* create_node(char *name, char *value, int token_type, int lineno){
     AST_Node *node = (AST_Node *)malloc(sizeof(AST_Node));
     node->name = (char *)malloc(strlen(name) + 1);
@@ -28,10 +20,9 @@ AST_Node* create_node(char *name, char *value, int token_type, int lineno){
 
 void add_child_sibling(AST_Node *parent, const int count,  ...){
     va_list ap;
-    int i;
     va_start(ap, count);
     AST_Node *last_node;
-    for (i = 0; i < count; i++){
+    for (int i = 0; i < count; i++){
         AST_Node *node = va_arg(ap, AST_Node*);
         node->parent = parent;
         if (i == 0){
@@ -55,6 +46,7 @@ void print_AST(AST_Node *node, int indent){
     }
     if (node->term_type == 1 && !node->first_child)
         return;
+        
     for (int i = 0; i < indent; i++){
         printf(" ");
     }
@@ -80,7 +72,19 @@ void print_AST(AST_Node *node, int indent){
     }
 }
 
-void update_column(char *text){
+/* help functions */
+// str2int
+int str_to_int(char* str, int type){
+    if (type == 0)
+        return atoi(str);
+    else if (type == 1) // OCT
+        return (int)strtol(str, NULL, 8); 
+    else // HEX
+        return (int)strtol(str, NULL, 16);
+}
+
+// update column in comment blocks
+void update_column(char* text){
     int len = strlen(text);
     int chline_flag = 0;
     int i, j;
@@ -95,17 +99,18 @@ void update_column(char *text){
         for (j = i; j < len; j++){
             yycolumn++;
         }
+    } else {
+        yycolumn = len;
     }
 }
 
-unsigned hash_pjw(char *name){
+// hash_pjw
+unsigned hash_pjw(char* name){
     unsigned val = 0, i;
-    while(*name){
+    for (; *name; ++name){
         val = (val << 2) + *name;
-        int i = val & ~0x3fff;
-        if (i)
-            val = (val ^ (i >> 12)) & 0x3fff;
-        name ++;
-    }
+        if (i = val & ~0x3fff) val = (val ^ (i >> 12)) & 0x3fff;
+    }  
     return val;
 }
+
