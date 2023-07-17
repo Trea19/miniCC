@@ -4,9 +4,8 @@
   #include "utils.h"
 
   FILE* in;
-  AST_Node *root;
-  
-  int yydebug = 0;
+  AST_Node* root;
+
   int error_flag = 0;
   int empty_flag = 1;
 

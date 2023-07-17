@@ -1,18 +1,17 @@
 %{
-    #include <stdio.h>
-    #include "utils.h"
-    #define YYERROR_VERBOSE
-    //#define YYDEBUG 1
-    extern AST_Node *root;
-    extern int error_flag;
-    extern int empty_flag;
+  #include <stdio.h>
+  #include "utils.h"
+
+  extern AST_Node* root;
+  extern int error_flag;
+  extern int empty_flag;
 %}
 
 %union{
-    AST_Node *node;
+  AST_Node* node;
 }
 
-/* tokens */
+/* terminals */
 %token <node> INT FLOAT ID 
 %token <node> SEMI COMMA ASSIGNOP RELOP
 %token <node> PLUS MINUS STAR DIV
