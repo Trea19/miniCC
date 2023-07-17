@@ -1,15 +1,14 @@
 #include "semantics.h"
-#include "utils.h"
 #include "debug.h"
 
-static Field_List *var_hash[MAX_HASH_TABLE_LEN];
-static Func *func_hash[MAX_HASH_TABLE_LEN];
-static Error_List *error_head = NULL;
+static Field_List* var_hash[MAX_HASH_TABLE_LEN];
+static Func* func_hash[MAX_HASH_TABLE_LEN];
+static Error_List* error_head = NULL;
 extern int error_flag;
 
+/* init */
 void init_hash_table() {
-    int i;
-    for (i = 0; i < MAX_HASH_TABLE_LEN; i ++){
+    for (int i = 0; i < MAX_HASH_TABLE_LEN; i ++){
         var_hash[i] = NULL;
         func_hash[i] = NULL;
     }
@@ -17,48 +16,50 @@ void init_hash_table() {
     insert_read_write_func("write");
 }
 
-void insert_read_write_func(char *name) {
-    Func *func = malloc(sizeof(Func));
+void insert_read_write_func(char* name) {
+    Func* func = (Func*)malloc(sizeof(Func));
     func->line_num = 0;
-    Type *type = malloc(sizeof(type));
+    // ret_type
+    Type* type = (Type*)malloc(sizeof(Type));
     type->kind = BASIC;
     type->u.basic = BASIC_INT;
-    if (strcmp(name, "write") == 0){
+    if (strcmp(name, "read") == 0){
+        func->param_size = 0;
+    }
+    else { // write_func
         func->param_size = 1;
-        Field_List *field = malloc(sizeof(Field_List));
+        // param only support int
+        Field_List* field = (Field_List*)malloc(sizeof(Field_List));
         field->is_structure = 0;
         field->wrapped_layer = 1;
         field->type = type;
         field->line_num = 0;
         func->first_param = field;
     }
-    else {
-        func->param_size = 0;
-    }
     strcpy(func->name, name);
     insert_func_hash_table(hash_pjw(func->name), func->name, type, func);
 }
 
-void semantics_analysis(AST_Node *root){
+/* semantics analysis */
+void semantics_analysis(AST_Node* root){
     init_hash_table();
     sem_program(root);
-    check_undec_func();
 }
 
-void sem_program(AST_Node *root){
+void sem_program(AST_Node* root){
     sem_ext_def_list(root->first_child);
 }
 
-void sem_ext_def_list(AST_Node *node){
+void sem_ext_def_list(AST_Node* node){
     if (node && node->first_child){
         sem_ext_def(node->first_child);
         sem_ext_def_list(node->first_child->sibling);
     }
 }
 
-void sem_ext_def(AST_Node *node){
+void sem_ext_def(AST_Node* node){
     assert(node);
-    Type *type = sem_specifier(node->first_child, 0, 0); // get type from specifier
+    Type* type = sem_specifier(node->first_child, 0, 0); // get type from specifier
     if (strcmp(node->first_child->sibling->name, "ExtDecList") == 0)
         // usage of structure.first_field or TYPE
         sem_ext_dec_list(node->first_child->sibling, type); // set type to decList
@@ -793,17 +794,6 @@ int check_twofunc_equal_params(Field_List *field1, Field_List *field2){
     if (cur1 || cur2)
         return 0;
     return 1;
-}
-
-void check_undec_func(){
-    int i;
-    for (i = 0; i < MAX_HASH_TABLE_LEN; i ++){
-        if (func_hash[i] && func_hash[i]->defined == 0){
-            char info[MAX_ERROR_INFO_LEN];
-            sprintf(info, "Undefined function '%s'.\n", func_hash[i]->name);
-            add_error_list(18, info, func_hash[i]->line_num);
-        }
-    }
 }
 
 void pop_local_var(int wrapped_layer){
