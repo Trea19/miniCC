@@ -2,7 +2,7 @@
 #define MIPS_H
 
 #include "ir.h"
-#include "AST.h"
+#include "utils.h"
 #include "semantics.h"
 
 #define REG_GP 28

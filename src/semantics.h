@@ -8,7 +8,7 @@
 #define MAX_ERROR_INFO_LEN 512
 #define MAX_FIELD_NUM 256
 
-#include "AST.h"
+#include "utils.h"
 #include "ir.h"
 
 struct Type {

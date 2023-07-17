@@ -1,7 +1,7 @@
 #ifndef IR_H
 #define IR_H
 
-#include "AST.h"
+#include "utils.h"
 #include "semantics.h"
 
 struct Operand {

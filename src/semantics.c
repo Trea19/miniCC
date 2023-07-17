@@ -1,6 +1,5 @@
 #include "semantics.h"
 #include "utils.h"
-#include "AST.h"
 #include "debug.h"
 
 static Field_List *var_hash[MAX_HASH_TABLE_LEN];

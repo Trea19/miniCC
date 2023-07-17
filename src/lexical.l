@@ -1,7 +1,6 @@
 %{
   #include <stdio.h>
   #include "syntax.tab.h"
-  #include "AST.h"
   #include "utils.h"
 
   FILE* in;
@@ -34,7 +33,7 @@ WHILE             while
 TYPE              int|float
 OCTINT            (0[0-7]+)
 OCTINT_ERROR      (0[0-7]*[89a-zA-Z]+[0-7]*)
-HEXINT            (0[Xx][0-9a-fA-F]+)
+HEXINT            (0[xX][0-9a-fA-F]+)
 HEXINT_ERROR      (0[xX][a-fA-F0-9]*[g-zG-Z]+[a-fA-F0-9]*)
 INT               ((0|[1-9][0-9]*))
 FLOAT             ([0-9]*\.[0-9]+|[0-9]+\.)

@@ -1,6 +1,6 @@
 %{
     #include <stdio.h>
-    #include "AST.h"
+    #include "utils.h"
     #define YYERROR_VERBOSE
     //#define YYDEBUG 1
     extern AST_Node *root;

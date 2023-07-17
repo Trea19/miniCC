@@ -1,6 +1,5 @@
 #include "semantics.h"
 #include "utils.h"
-#include "AST.h"
 #include "debug.h"
 #include "ir.h"
 #include "math.h"
