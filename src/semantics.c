@@ -1,6 +1,9 @@
 #include "semantics.h"
 #include "debug.h"
 
+#define QUERY_STRUCT_IN_HASH 1
+#define NOT_QUERY_STRUCT_IN_HASH 0
+
 static Field_List* var_hash[MAX_HASH_TABLE_LEN];
 static Func* func_hash[MAX_HASH_TABLE_LEN];
 static Error_List* error_head = NULL;
@@ -46,10 +49,12 @@ void semantics_analysis(AST_Node* root){
     sem_program(root);
 }
 
+// Program ::= ExtDefList 
 void sem_program(AST_Node* root){
     sem_ext_def_list(root->first_child);
 }
 
+// ExtDefList ::= ExtDef ExtDefList | ε
 void sem_ext_def_list(AST_Node* node){
     if (node && node->first_child){
         sem_ext_def(node->first_child);
@@ -57,14 +62,17 @@ void sem_ext_def_list(AST_Node* node){
     }
 }
 
+// ExtDef ::= Specifier ExtDecList SEMI |
+//            Specifier SEMI |
+//            Specifier FunDec CompSt |
+//            Specifier FunDec SEMI 
 void sem_ext_def(AST_Node* node){
     assert(node);
     Type* type = sem_specifier(node->first_child, 0, 0); // get type from specifier
     if (strcmp(node->first_child->sibling->name, "ExtDecList") == 0)
-        // usage of structure.first_field or TYPE
-        sem_ext_dec_list(node->first_child->sibling, type); // set type to decList
+        sem_ext_dec_list(node->first_child->sibling, type);
     else if (strcmp(node->first_child->sibling->name, "SEMI") == 0){
-        // Definition of structure
+        // definition of structure
         if (!type && strcmp(node->first_child->first_child->first_child->sibling->name, "Tag") == 0){ // struct a; ('a' hasn't been defined)
             char info[MAX_ERROR_INFO_LEN];
             sprintf(info, "structure '%s' hasn't been defined.\n", node->first_child->first_child->first_child->sibling->first_child->value);
@@ -73,40 +81,39 @@ void sem_ext_def(AST_Node* node){
     }
     else{
         assert(strcmp(node->first_child->sibling->name, "FunDec") == 0);
-        if (strcmp(node->first_child->sibling->sibling->name, "CompSt") == 0){ // Definition of functions
-            Func *func = sem_fun_dec(node->first_child->sibling);
-            if (!func)
-                return;
+        Func* func = sem_fun_dec(node->first_child->sibling);
+        if (!func)
+            return;
+        unsigned hash_index = hash_pjw(func->name);
+        // define
+        if (strcmp(node->first_child->sibling->sibling->name, "CompSt") == 0){ 
             func->return_type = type;
-            unsigned hash_index = hash_pjw(func->name);
             insert_func_hash_table(hash_index, func->name, type, func);
             sem_comp_st(node->first_child->sibling->sibling, 1, func);
-
-            pop_local_var(1);
         }
-        else{ // Declaration of functions
+        // declare
+        else { 
             assert(strcmp(node->first_child->sibling->sibling->name, "SEMI") == 0);
-            Func *func = sem_fun_dec(node->first_child->sibling);
-            if (!func)
-                return;
-            unsigned hash_index = hash_pjw(func->name);
             insert_func_dec_hash_table(hash_index, func->name, type, func);
-            pop_local_var(1);
         }
+        pop_local_var(1);
     }
 }
 
-void sem_ext_dec_list(AST_Node *node, Type *type){
+// ExtDecList ::= VarDec | VarDec COMMA ExtDecList 
+void sem_ext_dec_list(AST_Node* node, Type* type){
     assert(node && node->first_child);
     sem_var_dec(node->first_child, type, 0, 0);
     if (node->first_child->sibling)
         sem_ext_dec_list(node->first_child->sibling->sibling, type);
 }
 
-Type* sem_specifier(AST_Node *node, int wrapped_layer, int in_structure){
+// Specifier ::= TYPE | StructSpecifier 
+Type* sem_specifier(AST_Node* node, int wrapped_layer, int in_structure){
     assert(node);
+    // TYPE (int | float)
     if (strcmp(node->first_child->name, "TYPE") == 0){
-        Type *type = (Type *)malloc(sizeof(Type));
+        Type* type = (Type*)malloc(sizeof(Type));
         type->kind = BASIC;
         if (strcmp(node->first_child->value, "int") == 0)
             type->u.basic = BASIC_INT;
@@ -114,22 +121,28 @@ Type* sem_specifier(AST_Node *node, int wrapped_layer, int in_structure){
             type->u.basic = BASIC_FLOAT;
         return type;
     }
+    // StructSpecifier
     assert(strcmp(node->first_child->name, "StructSpecifier") == 0);
     return sem_struct_specifier(node->first_child, wrapped_layer, in_structure);
 }
 
-Type* sem_struct_specifier(AST_Node *node, int wrapped_layer, int in_structure){
+// StructSpecifier ::= STRUCT Tag | 
+//                     STRUCT OptTag LC DefList RC |
+Type* sem_struct_specifier(AST_Node* node, int wrapped_layer, int in_structure){
     assert(node && node->first_child && strcmp(node->first_child->name, "STRUCT") == 0);
+    // STRUCT Tag
     if (strcmp(node->first_child->sibling->name, "Tag") == 0){
-        AST_Node *tag_node = node->first_child->sibling->first_child;
+        // Tag ::= ID
+        AST_Node* tag_node = node->first_child->sibling->first_child;
         unsigned hash_index = hash_pjw(tag_node->value);
-        Field_List * field = query_field_hash_table(hash_index, tag_node->value, tag_node, 1);
+        Field_List* field = query_field_hash_table(hash_index, tag_node->value, tag_node, QUERY_STRUCT_IN_HASH);
         if (field)
             return field->type;
         return NULL;
     }
+    // STRUCT OptTag LC DefList RC
     assert(strcmp(node->first_child->sibling->name, "OptTag") == 0);
-    Type *structure_type = (Type *)malloc(sizeof(Type));
+    Type* structure_type = (Type *)malloc(sizeof(Type));
     structure_type->kind = STRUCTURE;
     structure_type->u.structure.first_field = sem_def_list(node->first_child->sibling->sibling->sibling, 1, wrapped_layer);
     structure_type->u.structure.first_flat = struct_type_to_list(structure_type->u.structure.first_field);
@@ -478,7 +491,7 @@ Type *sem_exp(AST_Node *node){
     else if (strcmp(node->first_child->name, "ID") == 0){
         if (!node->first_child->sibling){
             unsigned hash_index = hash_pjw(node->first_child->value);
-            Field_List *field = query_field_hash_table(hash_index, node->first_child->value, node->first_child, 0);
+            Field_List *field = query_field_hash_table(hash_index, node->first_child->value, node->first_child, NOT_QUERY_STRUCT_IN_HASH);
             if (!field){
                 char info[MAX_ERROR_INFO_LEN];
                 sprintf(info, "Undefined variable '%s'.\n", node->first_child->value);
@@ -489,7 +502,7 @@ Type *sem_exp(AST_Node *node){
         }
         unsigned hash_index = hash_pjw(node->first_child->value);
         Func *func = query_func_hash_table(hash_index, node->first_child->value);
-        Field_List *var = query_field_hash_table(hash_index, node->first_child->value, NULL, 0);
+        Field_List *var = query_field_hash_table(hash_index, node->first_child->value, NULL, NOT_QUERY_STRUCT_IN_HASH);
         
         if (!func || func->defined == 0){
             if (!func && var){
