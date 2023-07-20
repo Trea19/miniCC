@@ -23,7 +23,6 @@ struct Type {
         } array;
         struct {
             struct Field_List* first_field;
-            struct Type* first_flat; //?
             int size;
         } structure;
     } u;
@@ -105,16 +104,12 @@ Func *query_func_hash_table(unsigned, char *);
 Func *insert_func_dec_hash_table(unsigned, char *, Type *, Func *);
 int check_equal_type(Type *, Type *);
 int check_struct_equal_type_naive(Type *, Type *);
-int check_struct_equal_type(Type *, Type *);
 int check_duplicate_field(Type *);
 int check_equal_params(Field_List *, Type *);
 int check_twofunc_equal_params(Field_List *, Field_List *);
 void pop_local_var(int);
-Type *struct_type_to_list(Field_List *);
 void add_error_list(int, char *, int);
 void print_error_list();
 
-/* for debug */
-void print_field_list(int);
-
 #endif
+
