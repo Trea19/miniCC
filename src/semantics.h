@@ -28,7 +28,6 @@ struct Type {
     } u;
     struct Type* next_ret_type; 
     struct Type* next_actual_param; 
-    struct Type* next_flat; // struct type to non-struct flat type list ?
     int line_num;
 };
 
@@ -102,11 +101,11 @@ Field_List *query_field_hash_table(unsigned, char *, AST_Node *, int);
 Func *insert_func_hash_table(unsigned, char *, Type *, Func *);
 Func *query_func_hash_table(unsigned, char *);
 Func *insert_func_dec_hash_table(unsigned, char *, Type *, Func *);
-int check_equal_type(Type *, Type *);
-int check_struct_equal_type_naive(Type *, Type *);
-int check_duplicate_field(Type *);
-int check_equal_params(Field_List *, Type *);
-int check_twofunc_equal_params(Field_List *, Field_List *);
+int check_type_equal(Type *, Type *);
+int check_struct_equal_type(Type *, Type *);
+int check_field_duplicate(Type *);
+int check_params_equal(Field_List *, Type *);
+int check_func_params_equal(Field_List *, Field_List *);
 void pop_local_var(int);
 void add_error_list(int, char *, int);
 void print_error_list();
