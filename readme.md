@@ -45,6 +45,3 @@ cd src/
 make clean
 ```
 
-## Link
-
-NJU - Principles and Techniques of Compilers: https://cs.nju.edu.cn/changxu/2_compiler/index.html
